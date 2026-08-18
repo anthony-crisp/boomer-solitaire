@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -484,6 +485,7 @@ private fun CardFace(card: Card, metrics: BoardMetrics, settings: Settings, shap
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .clip(shape)
             .background(table.cardFace, shape)
             .border(1.dp, table.cardEdge, shape),
     ) {
@@ -533,6 +535,7 @@ private fun CardBack(metrics: BoardMetrics, settings: Settings, shape: RoundedCo
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .clip(shape)
             .background(table.cardBack, shape)
             .border(1.dp, table.cardBackAccent.copy(alpha = 0.6f), shape),
     ) {
