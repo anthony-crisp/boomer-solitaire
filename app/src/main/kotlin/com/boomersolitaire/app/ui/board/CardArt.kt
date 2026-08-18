@@ -120,8 +120,10 @@ object CardArt {
     /**
      * Draw the middle of a card face (pips, ace, or court figure) inside
      * [w] x [h], assuming the corner indices occupy the outer margins.
+     * [indexScale] is how much larger than normal the corner indices are,
+     * so the court panel can stay clear of them.
      */
-    fun DrawScope.drawFaceCenter(card: Card, w: Float, h: Float, suitColor: Color, accent: Color) {
+    fun DrawScope.drawFaceCenter(card: Card, w: Float, h: Float, suitColor: Color, accent: Color, indexScale: Float = 1f) {
         val rank = card.rank
         when {
             rank == 1 -> {
@@ -145,13 +147,16 @@ object CardArt {
                     )
                 }
             }
-            else -> drawCourt(card, w, h, suitColor, accent)
+            else -> drawCourt(card, w, h, suitColor, accent, indexScale)
         }
     }
 
     /** Clean geometric court cards: a framed panel with a crown/tiara/plume. */
-    private fun DrawScope.drawCourt(card: Card, w: Float, h: Float, suitColor: Color, accent: Color) {
-        val panel = Rect(w * 0.22f, h * 0.14f, w * 0.78f, h * 0.86f)
+    private fun DrawScope.drawCourt(card: Card, w: Float, h: Float, suitColor: Color, accent: Color, indexScale: Float) {
+        // The panel's top edge stays below the corner rank and suit marks,
+        // whatever size the indices are drawn at.
+        val panelTop = (w * (0.07f + 0.21f * indexScale + 0.045f)).coerceAtLeast(h * 0.14f)
+        val panel = Rect(w * 0.22f, panelTop, w * 0.78f, h * 0.86f)
         val corner = w * 0.045f
         // Panel frame.
         drawRoundRect(

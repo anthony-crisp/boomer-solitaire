@@ -150,11 +150,11 @@ fun computeBoardMetrics(
 fun computePlacements(state: GameState, m: BoardMetrics): Map<Int, CardPlacement> {
     val out = HashMap<Int, CardPlacement>(52)
 
-    // Stock: face-down stack with a hint of depth.
+    // Stock: cards sit flush — sub-radius offsets would poke through the
+    // top card's corner curve and make it look square.
     state.stock.forEachIndexed { i, card ->
-        val lift = (i / 8) * 1.5f
         out[card.id] = CardPlacement(
-            x = m.stockPos.x - lift, y = m.stockPos.y - lift, z = i.toFloat(),
+            x = m.stockPos.x, y = m.stockPos.y, z = i.toFloat(),
             faceUp = false,
             tap = TapTarget.Stock,
         )

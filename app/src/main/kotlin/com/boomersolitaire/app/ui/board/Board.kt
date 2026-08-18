@@ -501,14 +501,15 @@ private fun CardFace(card: Card, metrics: BoardMetrics, settings: Settings, shap
                 ),
             )
             with(CardArt) {
-                // Top-right index suit.
+                // Centre art first; the corner index draws last so nothing
+                // ever strokes over it.
+                if (card.rank > 10) {
+                    drawFaceCenter(card, w, h, suitColor, table.highlight.copy(alpha = 0.9f), metrics.indexScale)
+                } else {
+                    drawFaceCenter(card, w, h, suitColor, table.highlight, metrics.indexScale)
+                }
                 val s = w * 0.21f * metrics.indexScale
                 drawSuit(card.suit, Offset(w - s - w * 0.06f, w * 0.07f), s, suitColor)
-                if (card.rank > 10) {
-                    drawFaceCenter(card, w, h, suitColor, table.highlight.copy(alpha = 0.9f))
-                } else {
-                    drawFaceCenter(card, w, h, suitColor, table.highlight)
-                }
             }
         }
         
