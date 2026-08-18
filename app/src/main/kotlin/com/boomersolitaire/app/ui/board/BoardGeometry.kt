@@ -48,18 +48,34 @@ fun computeBoardMetrics(
     leftHanded: Boolean,
 ): BoardMetrics {
     val isLandscape = widthPx > heightPx
-    val margin = 8f * density
-    val gap = 5f * density
+    // Seven columns pin the card width in portrait, so "bigger cards" is
+    // delivered honestly: tighter margins, a taller card, larger indices,
+    // and a roomier fan — not a scale factor that changes nothing.
     val sizeScale = when (cardSize) {
         CardSize.NORMAL -> 1.0f
-        CardSize.LARGE -> 1.12f
-        CardSize.EXTRA_LARGE -> 1.25f
+        CardSize.LARGE -> 1.14f
+        CardSize.EXTRA_LARGE -> 1.28f
     }
+    val aspect = when (cardSize) {
+        CardSize.NORMAL -> 1.42f
+        CardSize.LARGE -> 1.5f
+        CardSize.EXTRA_LARGE -> 1.58f
+    }
+    val margin = when (cardSize) {
+        CardSize.NORMAL -> 8f
+        CardSize.LARGE -> 6f
+        CardSize.EXTRA_LARGE -> 4f
+    } * density
+    val gap = when (cardSize) {
+        CardSize.NORMAL -> 5f
+        CardSize.LARGE -> 4f
+        CardSize.EXTRA_LARGE -> 3f
+    } * density
 
     if (!isLandscape) {
         // Portrait: top row (stock, waste, fan space, 4 foundations), tableau below.
         val cardW = (widthPx - 2 * margin - 6 * gap) / 7f
-        val cardH = cardW * 1.42f
+        val cardH = cardW * aspect
         val topY = margin
         val slotX = { i: Int -> margin + i * (cardW + gap) }
         val mirror = { x: Float -> if (leftHanded) widthPx - x - cardW else x }
@@ -82,12 +98,17 @@ fun computeBoardMetrics(
         )
     } else {
         // Landscape: stock/waste on one side, a 2x2 foundation grid on the
-        // other, tableau in the middle.
-        val cardH = ((heightPx - 2 * margin) / 3.35f).coerceAtLeast(40f)
-        var cardW = cardH / 1.42f
+        // other, tableau in the middle. Bigger sizes claim more of the height.
+        val heightDivisor = when (cardSize) {
+            CardSize.NORMAL -> 3.35f
+            CardSize.LARGE -> 3.1f
+            CardSize.EXTRA_LARGE -> 2.9f
+        }
+        val cardH = ((heightPx - 2 * margin) / heightDivisor).coerceAtLeast(40f)
+        var cardW = cardH / aspect
         val needed = 10 * cardW + 12 * gap + 2 * margin
         if (needed > widthPx) cardW = (widthPx - 2 * margin - 12 * gap) / 10f
-        val cardH2 = cardW * 1.42f
+        val cardH2 = cardW * aspect
         val mirror = { x: Float -> if (leftHanded) widthPx - x - cardW else x }
         val leftX = mirror(margin)
         val rightInner = widthPx - margin - cardW // right-most column
