@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -123,33 +124,26 @@ fun HomeScreen(
 }
 
 /**
- * The badge from the launcher icon: a felt disc of concentric hearts.
- * Fixed brand colours — a logo does not follow the theme.
+ * The badge from the launcher icon: a retro-print Ace of Spades — black
+ * spade over a gold misregistered copy, double-ringed, on cream. Fixed
+ * brand colours — a logo does not follow the theme.
  */
 @Composable
 private fun BrandMark(modifier: Modifier = Modifier) {
-    val ring = Color(0xFF2A5C43)
-    val disc = Color(0xFF5F8A6B)
-    val cream = Color(0xFFF5EFDF)
+    val cream = Color(0xFFF2E9D4)
+    val ink = Color(0xFF26241E)
+    val gold = Color(0xFFD9A441)
+    val orange = Color(0xFFC96F2E)
     Canvas(modifier = modifier.size(112.dp)) {
         val c = center
         val r = size.minDimension / 2f
-        drawCircle(ring, r, c)
-        drawCircle(disc, r * 0.95f, c)
-        val hearts = listOf(0.72f to cream, 0.56f to disc, 0.42f to cream, 0.28f to disc, 0.155f to cream)
-        hearts.forEachIndexed { i, (f, color) ->
-            val s = 2f * r * f
-            with(CardArt) {
-                drawSuit(
-                    Suit.HEARTS,
-                    Offset(c.x - s / 2f, c.y - s / 2f + r * 0.06f - i * r * 0.012f),
-                    s,
-                    color,
-                )
-            }
+        drawCircle(cream, r, c)
+        drawCircle(orange, r * 0.9f, c, style = Stroke(width = r * 0.075f))
+        drawCircle(gold, r * 0.79f, c, style = Stroke(width = r * 0.04f))
+        val s = r * 1.0f
+        with(CardArt) {
+            drawSuit(Suit.SPADES, Offset(c.x - s / 2f + r * 0.055f, c.y - s / 2f + r * 0.055f), s, gold)
+            drawSuit(Suit.SPADES, Offset(c.x - s / 2f, c.y - s / 2f), s, ink)
         }
-        drawCircle(cream, r * 0.1f, Offset(c.x, c.y - r * 0.7f))
-        drawCircle(cream, r * 0.055f, Offset(c.x - r * 0.57f, c.y - r * 0.52f))
-        drawCircle(cream, r * 0.055f, Offset(c.x + r * 0.57f, c.y - r * 0.52f))
     }
 }

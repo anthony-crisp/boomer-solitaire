@@ -159,6 +159,9 @@ fun GameScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
+                    // Keep the stock pile clear of the Menu button's touch
+                    // target — a mis-tap here exits the game.
+                    .padding(top = 12.dp)
                     .then(
                         if (ui.isDealing) {
                             Modifier.pointerInput(Unit) {

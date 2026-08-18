@@ -1,42 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The medallion: a felt-green disc of concentric hearts with a pip dot,
-     70s-badge warmth. Fits entirely inside the adaptive-icon safe zone. -->
+<!-- The Ace of Spades, retro-print style: a black spade over a gold
+     "misregistered" copy — vintage offset-print charm — inside a burnt
+     orange and gold double ring. Fits the adaptive-icon safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- disc with darker ring edge -->
-    <path android:fillColor="#2A5C43"
-        android:pathData="M54,54m-32,0a32,32 0 1,1 64,0a32,32 0 1,1 -64,0" />
-    <path android:fillColor="#5F8A6B"
-        android:pathData="M54,54m-30.5,0a30.5,30.5 0 1,1 61,0a30.5,30.5 0 1,1 -61,0" />
-    <!-- concentric hearts, alternating cream / green -->
-    <group android:translateX="31" android:translateY="33.5" android:scaleX="46" android:scaleY="46">
-        <path android:fillColor="#F5EFDF"
-            android:pathData="M0.5,0.32 C0.5,0.12 0.34,0.02 0.2,0.02 C0.05,0.02 0,0.18 0,0.3 C0,0.55 0.25,0.72 0.5,0.98 C0.75,0.72 1,0.55 1,0.3 C1,0.18 0.95,0.02 0.8,0.02 C0.66,0.02 0.5,0.12 0.5,0.32 Z" />
+    <!-- double ring -->
+    <path android:strokeColor="#C96F2E" android:strokeWidth="2.6" android:fillColor="#00000000"
+        android:pathData="M54,54m-30,0a30,30 0 1,1 60,0a30,30 0 1,1 -60,0" />
+    <path android:strokeColor="#D9A441" android:strokeWidth="1.4" android:fillColor="#00000000"
+        android:pathData="M54,54m-26.6,0a26.6,26.6 0 1,1 53.2,0a26.6,26.6 0 1,1 -53.2,0" />
+    <!-- gold misprint copy, nudged down-right -->
+    <group android:translateX="39.4" android:translateY="38.4" android:scaleX="33" android:scaleY="33">
+        <path android:fillColor="#D9A441"
+            android:pathData="M0.5,0.02 C0.28,0.28 0.04,0.38 0.04,0.58 C0.04,0.72 0.15,0.8 0.27,0.8 C0.35,0.8 0.43,0.76 0.465,0.69 C0.45,0.82 0.41,0.9 0.33,0.98 L0.67,0.98 C0.59,0.9 0.55,0.82 0.535,0.69 C0.57,0.76 0.65,0.8 0.73,0.8 C0.85,0.8 0.96,0.72 0.96,0.58 C0.96,0.38 0.72,0.28 0.5,0.02 Z" />
     </group>
-    <group android:translateX="36" android:translateY="38" android:scaleX="36" android:scaleY="36">
-        <path android:fillColor="#5F8A6B"
-            android:pathData="M0.5,0.32 C0.5,0.12 0.34,0.02 0.2,0.02 C0.05,0.02 0,0.18 0,0.3 C0,0.55 0.25,0.72 0.5,0.98 C0.75,0.72 1,0.55 1,0.3 C1,0.18 0.95,0.02 0.8,0.02 C0.66,0.02 0.5,0.12 0.5,0.32 Z" />
+    <!-- the spade -->
+    <group android:translateX="37.5" android:translateY="36.5" android:scaleX="33" android:scaleY="33">
+        <path android:fillColor="#26241E"
+            android:pathData="M0.5,0.02 C0.28,0.28 0.04,0.38 0.04,0.58 C0.04,0.72 0.15,0.8 0.27,0.8 C0.35,0.8 0.43,0.76 0.465,0.69 C0.45,0.82 0.41,0.9 0.33,0.98 L0.67,0.98 C0.59,0.9 0.55,0.82 0.535,0.69 C0.57,0.76 0.65,0.8 0.73,0.8 C0.85,0.8 0.96,0.72 0.96,0.58 C0.96,0.38 0.72,0.28 0.5,0.02 Z" />
     </group>
-    <group android:translateX="40.5" android:translateY="42" android:scaleX="27" android:scaleY="27">
-        <path android:fillColor="#F5EFDF"
-            android:pathData="M0.5,0.32 C0.5,0.12 0.34,0.02 0.2,0.02 C0.05,0.02 0,0.18 0,0.3 C0,0.55 0.25,0.72 0.5,0.98 C0.75,0.72 1,0.55 1,0.3 C1,0.18 0.95,0.02 0.8,0.02 C0.66,0.02 0.5,0.12 0.5,0.32 Z" />
-    </group>
-    <group android:translateX="45" android:translateY="46" android:scaleX="18" android:scaleY="18">
-        <path android:fillColor="#5F8A6B"
-            android:pathData="M0.5,0.32 C0.5,0.12 0.34,0.02 0.2,0.02 C0.05,0.02 0,0.18 0,0.3 C0,0.55 0.25,0.72 0.5,0.98 C0.75,0.72 1,0.55 1,0.3 C1,0.18 0.95,0.02 0.8,0.02 C0.66,0.02 0.5,0.12 0.5,0.32 Z" />
-    </group>
-    <group android:translateX="49" android:translateY="49.5" android:scaleX="10" android:scaleY="10">
-        <path android:fillColor="#F5EFDF"
-            android:pathData="M0.5,0.32 C0.5,0.12 0.34,0.02 0.2,0.02 C0.05,0.02 0,0.18 0,0.3 C0,0.55 0.25,0.72 0.5,0.98 C0.75,0.72 1,0.55 1,0.3 C1,0.18 0.95,0.02 0.8,0.02 C0.66,0.02 0.5,0.12 0.5,0.32 Z" />
-    </group>
-    <!-- pip dot above the hearts, with two small rivets at the shoulders -->
-    <path android:fillColor="#F5EFDF"
-        android:pathData="M54,31m-3.2,0a3.2,3.2 0 1,1 6.4,0a3.2,3.2 0 1,1 -6.4,0" />
-    <path android:fillColor="#F5EFDF"
-        android:pathData="M35.5,37m-1.8,0a1.8,1.8 0 1,1 3.6,0a1.8,1.8 0 1,1 -3.6,0" />
-    <path android:fillColor="#F5EFDF"
-        android:pathData="M72.5,37m-1.8,0a1.8,1.8 0 1,1 3.6,0a1.8,1.8 0 1,1 -3.6,0" />
 </vector>
