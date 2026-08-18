@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A tilted white card with a spade, warm cream face and orange accent. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:rotation="-8" android:pivotX="54" android:pivotY="54">
+        <!-- card shadow -->
+        <path android:fillColor="#33000000"
+            android:pathData="M38.5,32.5 h35 a4,4 0 0 1 4,4 v39 a4,4 0 0 1 -4,4 h-35 a4,4 0 0 1 -4,-4 v-39 a4,4 0 0 1 4,-4 z" />
+        <!-- card face -->
+        <path android:fillColor="#F5EBD8"
+            android:pathData="M36.5,30.5 h35 a4,4 0 0 1 4,4 v39 a4,4 0 0 1 -4,4 h-35 a4,4 0 0 1 -4,-4 v-39 a4,4 0 0 1 4,-4 z" />
+        <!-- orange band -->
+        <path android:fillColor="#D98E4A"
+            android:pathData="M32.5,66 h43 v4 h-43 z" />
+        <!-- spade -->
+        <path android:fillColor="#20241F"
+            android:pathData="M54,38 c-3.5,5 -8,7.5 -8,12 a4.5,4.5 0 0 0 7.2,3.6 c-0.4,2.4 -1.4,4 -3.2,5.4 h8 c-1.8,-1.4 -2.8,-3 -3.2,-5.4 a4.5,4.5 0 0 0 7.2,-3.6 c0,-4.5 -4.5,-7 -8,-12 z" />
+    </group>
+</vector>
