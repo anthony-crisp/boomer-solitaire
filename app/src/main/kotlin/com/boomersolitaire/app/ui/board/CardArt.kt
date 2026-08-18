@@ -131,11 +131,13 @@ object CardArt {
                 drawSuit(card.suit, Offset((w - s) / 2f, (h - s) / 2f), s, suitColor)
             }
             rank in 2..10 -> {
-                // Pips live in an inner window clear of the corner indices.
+                // Pips live in an inner window that clears the corner marks —
+                // a wide rank like "10" plus a big index must never be clipped
+                // by the top pip row.
                 val left = w * 0.08f
                 val innerW = w * 0.84f
-                val top = h * 0.14f
-                val innerH = h * 0.74f
+                val top = maxOf(h * 0.14f, w * (0.06f + 0.34f * indexScale))
+                val innerH = h * 0.88f - top
                 val pip = w * 0.19f
                 for (p in pipLayouts.getValue(rank)) {
                     drawSuit(
