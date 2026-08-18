@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -41,6 +42,7 @@ fun GlassButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    prominent: Boolean = false,
 ) {
     val lightTable = rememberLightTable()
     val interaction = remember { MutableInteractionSource() }
@@ -48,11 +50,16 @@ fun GlassButton(
     val shape = RoundedCornerShape(20.dp)
     Box(
         modifier = modifier
-            .heightIn(min = 56.dp)
+            .heightIn(min = if (prominent) 72.dp else 56.dp)
             .glass(shape, GlassTier.RAISED, lightTable, pressed = { pressed.value })
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, fontSize = 20.sp, color = MaterialTheme.colorScheme.onBackground)
+        Text(
+            text,
+            fontSize = if (prominent) 26.sp else 20.sp,
+            fontWeight = if (prominent) FontWeight.Bold else null,
+            color = if (prominent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
+        )
     }
 }

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -87,19 +86,12 @@ fun HomeScreen(
             }
             Spacer(Modifier.height(36.dp))
 
-            Button(
+            GlassButton(
+                text = if (resumable) "Continue game" else "Play",
                 onClick = onPlay,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 72.dp),
-                shape = RoundedCornerShape(20.dp),
-            ) {
-                Text(
-                    if (resumable) "Continue game" else "Play",
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
+                modifier = Modifier.fillMaxWidth(),
+                prominent = true,
+            )
             Spacer(Modifier.height(14.dp))
             GlassButton(
                 text = "New game",
