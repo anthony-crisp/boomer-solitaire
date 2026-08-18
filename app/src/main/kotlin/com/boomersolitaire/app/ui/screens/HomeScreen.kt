@@ -1,6 +1,5 @@
 package com.boomersolitaire.app.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,19 +15,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.boomersolitaire.app.game.GameViewModel
+import com.boomersolitaire.app.ui.theme.GlassButton
 import com.boomersolitaire.app.ui.theme.LocalTableColors
+import com.boomersolitaire.app.ui.theme.feltBackground
 
 @Composable
 fun HomeScreen(
@@ -47,7 +48,7 @@ fun HomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(table.felt),
+            .feltBackground(table),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -61,15 +62,17 @@ fun HomeScreen(
         ) {
             Text(
                 "Boomer",
-                fontSize = 44.sp,
+                fontSize = 46.sp,
                 fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Serif,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
             )
             Text(
                 "Solitaire",
-                fontSize = 44.sp,
+                fontSize = 46.sp,
                 fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Serif,
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center,
             )
@@ -98,35 +101,23 @@ fun HomeScreen(
                 )
             }
             Spacer(Modifier.height(14.dp))
-            OutlinedButton(
+            GlassButton(
+                text = "New game",
                 onClick = onNewGame,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
-                shape = RoundedCornerShape(20.dp),
-            ) {
-                Text("New game", fontSize = 20.sp, color = MaterialTheme.colorScheme.onBackground)
-            }
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(14.dp))
-            OutlinedButton(
+            GlassButton(
+                text = "Scores",
                 onClick = onScores,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
-                shape = RoundedCornerShape(20.dp),
-            ) {
-                Text("Scores", fontSize = 20.sp, color = MaterialTheme.colorScheme.onBackground)
-            }
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(14.dp))
-            OutlinedButton(
+            GlassButton(
+                text = "Settings",
                 onClick = onSettings,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
-                shape = RoundedCornerShape(20.dp),
-            ) {
-                Text("Settings", fontSize = 20.sp, color = MaterialTheme.colorScheme.onBackground)
-            }
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

@@ -1,6 +1,12 @@
 package com.boomersolitaire.app.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -45,10 +52,17 @@ import com.boomersolitaire.app.game.GameSound
 import com.boomersolitaire.app.game.GameViewModel
 import com.boomersolitaire.app.game.HintMessage
 import com.boomersolitaire.app.game.SoundManager
+import com.boomersolitaire.app.ui.board.BarIcon
 import com.boomersolitaire.app.ui.board.Board
 import com.boomersolitaire.app.ui.board.BoardCallbacks
 import com.boomersolitaire.app.ui.board.WinCelebration
+import com.boomersolitaire.app.ui.board.drawBarIcon
+import com.boomersolitaire.app.ui.theme.GlassPanel
+import com.boomersolitaire.app.ui.theme.GlassTier
+import com.boomersolitaire.app.ui.theme.glass
+import com.boomersolitaire.app.ui.theme.rememberLightTable
 import com.boomersolitaire.app.ui.theme.LocalTableColors
+import com.boomersolitaire.app.ui.theme.feltBackground
 import kotlinx.coroutines.delay
 
 @Composable
@@ -99,11 +113,12 @@ fun GameScreen(
         ) == 0f
     }
     val effectiveSettings = if (systemReduceMotion) ui.settings.copy(reduceMotion = true) else ui.settings
+    val onPrimarySparkle = MaterialTheme.colorScheme.onPrimary
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(table.felt),
+            .feltBackground(table),
     ) {
         Column(
             modifier = Modifier
@@ -132,12 +147,26 @@ fun GameScreen(
                 }
                 if (ui.canAutoComplete && !ui.isAutoCompleting && ui.winSummary == null) {
                     Button(onClick = { vm.autoComplete() }) {
-                        Text("Finish game ✨", fontSize = 17.sp)
+                        Canvas(modifier = Modifier.size(18.dp)) {
+                            drawBarIcon(BarIcon.HINT, onPrimarySparkle)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text("Finish game", fontSize = 17.sp)
                     }
                 }
             }
 
-            Box(modifier = Modifier.weight(1f)) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .then(
+                        if (ui.isDealing) {
+                            Modifier.pointerInput(Unit) {
+                                detectTapGestures { vm.onDealAnimationDone() }
+                            }
+                        } else Modifier
+                    ),
+            ) {
                 val state = ui.state
                 if (state == null) {
                     Column(
@@ -175,13 +204,13 @@ fun GameScreen(
                 // Kind hint message.
                 val message = ui.hint?.message
                 if (message != null && message != HintMessage.NONE) {
-                    Card(
+                    GlassPanel(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .padding(12.dp)
                             .widthIn(max = 420.dp),
+                        tier = GlassTier.RAISED,
                         shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     ) {
                         Text(
                             text = when (message) {
@@ -222,19 +251,19 @@ fun GameScreen(
                     when (slot) {
                         "undo" -> BarButton(
                             label = "Undo",
-                            glyph = "↩",
+                            icon = BarIcon.UNDO,
                             enabled = ui.canUndo && ui.winSummary == null,
                             modifier = Modifier.weight(1f),
                         ) { vm.undo() }
                         "hint" -> BarButton(
                             label = "Hint",
-                            glyph = "💡",
+                            icon = BarIcon.HINT,
                             enabled = ui.state != null && ui.winSummary == null,
                             modifier = Modifier.weight(1f),
                         ) { vm.hint() }
                         "draw" -> BarButton(
                             label = "Draw",
-                            glyph = "🂠",
+                            icon = BarIcon.DRAW,
                             enabled = ui.state != null && ui.winSummary == null,
                             modifier = Modifier.weight(1f),
                         ) { vm.onTapStock() }
@@ -245,25 +274,43 @@ fun GameScreen(
     }
 }
 
+/**
+ * A bar action: glass like the rest of the furniture, a drawn icon in the
+ * cards' own language, and a press expressed as a material change (the
+ * default ripple reads as flicker on glass).
+ */
 @Composable
 private fun BarButton(
     label: String,
-    glyph: String,
+    icon: BarIcon,
     enabled: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.heightIn(min = 56.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-        ),
+    val lightTable = rememberLightTable()
+    val interaction = remember { MutableInteractionSource() }
+    val pressed = interaction.collectIsPressedAsState()
+    val shape = RoundedCornerShape(16.dp)
+    val contentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = if (enabled) 1f else 0.35f)
+    Row(
+        modifier = modifier
+            .heightIn(min = 56.dp)
+            .glass(shape, GlassTier.RAISED, lightTable, pressed = { pressed.value && enabled })
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = enabled,
+                onClickLabel = label,
+                onClick = onClick,
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
-        Text("$glyph  $label", fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
+        Canvas(modifier = Modifier.size(22.dp)) {
+            drawBarIcon(icon, contentColor)
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(label, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = contentColor)
     }
 }
 
@@ -279,9 +326,9 @@ private fun WinOverlay(
             .background(Color.Black.copy(alpha = 0.45f)),
         contentAlignment = Alignment.Center,
     ) {
-        Card(
+        GlassPanel(
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            tier = GlassTier.TRANSIENT,
             modifier = Modifier
                 .padding(24.dp)
                 .widthIn(max = 380.dp),

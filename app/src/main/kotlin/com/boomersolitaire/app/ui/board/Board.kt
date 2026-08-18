@@ -38,6 +38,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -47,7 +49,11 @@ import com.boomersolitaire.app.data.Settings
 import com.boomersolitaire.app.game.HintDestination
 import com.boomersolitaire.app.game.HintHighlight
 import com.boomersolitaire.app.game.ShakeEvent
+import com.boomersolitaire.app.ui.theme.GlassTier
 import com.boomersolitaire.app.ui.theme.LocalTableColors
+import com.boomersolitaire.app.ui.theme.glass
+import com.boomersolitaire.app.ui.theme.grainBrush
+import com.boomersolitaire.app.ui.theme.rememberLightTable
 import com.boomersolitaire.engine.Card
 import com.boomersolitaire.engine.GameState
 import com.boomersolitaire.engine.Move
@@ -226,6 +232,7 @@ private fun PileOutlines(
         cardHDp = m.cardH.toDp()
     }
     val shape = RoundedCornerShape(with(density) { (m.cardW * 0.09f).toDp() })
+    val lightTable = rememberLightTable()
 
     @Composable
     fun outline(pos: Offset, label: String, onClick: (() -> Unit)?, highlighted: Boolean, content: @Composable () -> Unit = {}) {
@@ -234,7 +241,10 @@ private fun PileOutlines(
             modifier = Modifier
                 .offset { IntOffset(pos.x.roundToInt(), pos.y.roundToInt()) }
                 .size(cardWDp, cardHDp)
-                .border(if (highlighted) 3.dp else 1.5.dp, if (highlighted) table.highlight.copy(alpha = pulse) else table.pileOutline, shape)
+                .glass(shape, GlassTier.VEIL, lightTable)
+                .then(
+                    if (highlighted) Modifier.border(3.dp, table.highlight.copy(alpha = pulse), shape) else Modifier
+                )
                 .then(
                     if (onClick != null) {
                         Modifier
@@ -268,11 +278,11 @@ private fun PileOutlines(
             onClick = null,
             highlighted = highlighted,
         ) {
-            Text(
-                suitGlyph(suit),
-                color = table.pileOutline,
-                fontSize = with(density) { (m.cardW * 0.5f).toSp() },
-            )
+            Canvas(modifier = Modifier.size(cardWDp * 0.5f)) {
+                with(CardArt) {
+                    drawSuit(suit, Offset.Zero, size.width, table.pileOutline)
+                }
+            }
         }
     }
 
@@ -330,7 +340,7 @@ private fun BoardCard(
     val position = remember {
         Animatable(if (isDealing) metrics.stockPos else target, Offset.VectorConverter)
     }
-    LaunchedEffect(target, settings.reduceMotion) {
+    LaunchedEffect(target, settings.reduceMotion, isDealing) {
         if (settings.reduceMotion) {
             position.snapTo(target)
         } else {
@@ -346,7 +356,7 @@ private fun BoardCard(
 
     // 3D flip: 0f shows the back, 180f the face.
     val flip = remember { Animatable(if (placement.faceUp) 180f else 0f) }
-    LaunchedEffect(placement.faceUp, settings.reduceMotion) {
+    LaunchedEffect(placement.faceUp, settings.reduceMotion, isDealing) {
         val end = if (placement.faceUp) 180f else 0f
         if (settings.reduceMotion) {
             flip.snapTo(end)
@@ -480,6 +490,16 @@ private fun CardFace(card: Card, metrics: BoardMetrics, settings: Settings, shap
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
+            // Plate thickness: a whisper of light at the top edge, a settled
+            // shadow line at the bottom. Opaque underneath, always.
+            drawRect(
+                brush = Brush.verticalGradient(
+                    0f to Color.White.copy(alpha = 0.35f),
+                    0.18f to Color.Transparent,
+                    0.9f to Color.Transparent,
+                    1f to Color.Black.copy(alpha = 0.05f),
+                ),
+            )
             with(CardArt) {
                 // Top-right index suit.
                 val s = w * 0.21f * metrics.indexScale
@@ -491,11 +511,13 @@ private fun CardFace(card: Card, metrics: BoardMetrics, settings: Settings, shap
                 }
             }
         }
+        
         Text(
             text = rankLabel(card.rank),
             color = suitColor,
             fontSize = indexSize,
             fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Serif,
             lineHeight = indexSize,
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -517,6 +539,13 @@ private fun CardBack(metrics: BoardMetrics, settings: Settings, shape: RoundedCo
             with(CardArt) {
                 drawCardBack(settings.cardBack, size.width, size.height, table)
             }
+            drawRect(grainBrush(), alpha = 0.04f)
+            drawRect(
+                brush = Brush.verticalGradient(
+                    0f to Color.White.copy(alpha = 0.12f),
+                    0.25f to Color.Transparent,
+                ),
+            )
         }
     }
 }

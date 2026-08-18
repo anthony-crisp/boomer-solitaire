@@ -1,6 +1,5 @@
 package com.boomersolitaire.app.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,8 +14,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,7 +29,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.boomersolitaire.app.data.GameRecord
 import com.boomersolitaire.app.data.GameRecordDao
 import com.boomersolitaire.app.data.computeModeStats
+import com.boomersolitaire.app.ui.theme.GlassPanel
 import com.boomersolitaire.app.ui.theme.LocalTableColors
+import com.boomersolitaire.app.ui.theme.feltBackground
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -46,7 +45,7 @@ fun StatsScreen(dao: GameRecordDao, onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(table.felt)
+            .feltBackground(table)
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
@@ -121,9 +120,8 @@ fun StatsScreen(dao: GameRecordDao, onBack: () -> Unit) {
 
 @Composable
 private fun StatsCard(title: String, rows: List<Pair<String, String>>) {
-    Card(
+    GlassPanel(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier
             .fillMaxWidth()
             .widthIn(max = 480.dp),
@@ -149,9 +147,8 @@ private fun StatsCard(title: String, rows: List<Pair<String, String>>) {
 @Composable
 private fun BestGamesCard(games: List<GameRecord>) {
     val dateFormat = remember { DateTimeFormatter.ofPattern("d MMM yyyy") }
-    Card(
+    GlassPanel(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier
             .fillMaxWidth()
             .widthIn(max = 480.dp),

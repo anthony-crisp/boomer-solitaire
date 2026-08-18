@@ -91,8 +91,8 @@ fun BoomerTheme(theme: AppTheme, content: @Composable () -> Unit) {
         AppTheme.DARK -> darkTable
         AppTheme.HIGH_CONTRAST -> highContrastTable
     }
-    val scheme = if (table.isDark) {
-        darkColorScheme(
+    val scheme = when {
+        table.isDark -> darkColorScheme(
             primary = Color(0xFFE0B463),
             onPrimary = Color(0xFF241A05),
             secondary = Color(0xFF9CC7AD),
@@ -101,10 +101,21 @@ fun BoomerTheme(theme: AppTheme, content: @Composable () -> Unit) {
             onBackground = Color(0xFFF3EFE4),
             onSurface = Color(0xFFF3EFE4),
         )
-    } else {
-        lightColorScheme(
-            primary = Color(0xFF7A4E17),
+        theme == AppTheme.LINEN -> lightColorScheme(
+            // A light table needs dark ink — measured, not inherited:
+            // white-on-linen is 1.25:1.
+            primary = Color(0xFF6A4310),
             onPrimary = Color(0xFFFFF6E4),
+            secondary = Color(0xFF3D6B52),
+            background = table.felt,
+            surface = Color(0xFFF4EEDF),
+            onBackground = Color(0xFF35301F),
+            onSurface = Color(0xFF35301F),
+        )
+        else -> lightColorScheme(
+            // The green felt is dark despite being the "light" scheme.
+            primary = Color(0xFFE0B463),
+            onPrimary = Color(0xFF241A05),
             secondary = Color(0xFF3D6B52),
             background = table.felt,
             surface = table.feltShadow,

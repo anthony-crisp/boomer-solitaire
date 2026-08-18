@@ -1,6 +1,5 @@
 package com.boomersolitaire.app.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,8 +16,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +36,9 @@ import com.boomersolitaire.app.data.CardBack
 import com.boomersolitaire.app.data.CardSize
 import com.boomersolitaire.app.data.Settings
 import com.boomersolitaire.app.data.SettingsRepository
+import com.boomersolitaire.app.ui.theme.GlassPanel
 import com.boomersolitaire.app.ui.theme.LocalTableColors
+import com.boomersolitaire.app.ui.theme.feltBackground
 import kotlinx.coroutines.launch
 
 @Composable
@@ -51,7 +50,7 @@ fun SettingsScreen(repo: SettingsRepository, onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(table.felt)
+            .feltBackground(table)
             .statusBarsPadding()
             .navigationBarsPadding(),
     ) {
@@ -165,9 +164,8 @@ fun SettingsScreen(repo: SettingsRepository, onBack: () -> Unit) {
 
 @Composable
 private fun SettingsCard(title: String, content: @Composable () -> Unit) {
-    Card(
+    GlassPanel(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier
             .fillMaxWidth()
             .widthIn(max = 520.dp)
@@ -226,7 +224,11 @@ private fun <T> ChoiceRow(
                     selected = value == selected,
                     onClick = { onChange(value) },
                     label = { Text(label, fontSize = 16.sp) },
-                    colors = FilterChipDefaults.filterChipColors(),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f),
+                        selectedLabelColor = MaterialTheme.colorScheme.onSurface,
+                        labelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                    ),
                 )
             }
         }
