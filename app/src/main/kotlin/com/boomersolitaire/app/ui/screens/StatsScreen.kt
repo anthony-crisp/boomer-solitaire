@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.boomersolitaire.app.data.GameRecord
 import com.boomersolitaire.app.data.GameRecordDao
 import com.boomersolitaire.app.data.computeModeStats
+import com.boomersolitaire.app.ui.theme.BackToMenuButton
 import com.boomersolitaire.app.ui.theme.GlassPanel
 import com.boomersolitaire.app.ui.theme.LocalTableColors
 import com.boomersolitaire.app.ui.theme.feltBackground
@@ -55,9 +56,7 @@ fun StatsScreen(dao: GameRecordDao, onBack: () -> Unit) {
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onBack) {
-                Text("‹ Menu", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp)
-            }
+            BackToMenuButton(onClick = onBack)
             Spacer(Modifier.weight(1f))
         }
         Column(

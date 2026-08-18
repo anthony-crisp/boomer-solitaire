@@ -36,6 +36,7 @@ import com.boomersolitaire.app.data.CardBack
 import com.boomersolitaire.app.data.CardSize
 import com.boomersolitaire.app.data.Settings
 import com.boomersolitaire.app.data.SettingsRepository
+import com.boomersolitaire.app.ui.theme.BackToMenuButton
 import com.boomersolitaire.app.ui.theme.GlassPanel
 import com.boomersolitaire.app.ui.theme.LocalTableColors
 import com.boomersolitaire.app.ui.theme.feltBackground
@@ -60,9 +61,7 @@ fun SettingsScreen(repo: SettingsRepository, onBack: () -> Unit) {
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onBack) {
-                Text("‹ Menu", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp)
-            }
+            BackToMenuButton(onClick = onBack)
         }
         Column(
             modifier = Modifier

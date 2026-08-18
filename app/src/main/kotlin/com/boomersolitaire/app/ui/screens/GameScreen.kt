@@ -57,6 +57,7 @@ import com.boomersolitaire.app.ui.board.Board
 import com.boomersolitaire.app.ui.board.BoardCallbacks
 import com.boomersolitaire.app.ui.board.WinCelebration
 import com.boomersolitaire.app.ui.board.drawBarIcon
+import com.boomersolitaire.app.ui.theme.BackToMenuButton
 import com.boomersolitaire.app.ui.theme.GlassPanel
 import com.boomersolitaire.app.ui.theme.GlassTier
 import com.boomersolitaire.app.ui.theme.glass
@@ -133,9 +134,7 @@ fun GameScreen(
                     .padding(horizontal = 8.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = onBackToMenu) {
-                    Text("‹ Menu", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp)
-                }
+                BackToMenuButton(onClick = onBackToMenu)
                 Spacer(Modifier.weight(1f))
                 if (ui.settings.showTimer && ui.state != null) {
                     Text(
@@ -159,6 +158,7 @@ fun GameScreen(
             Box(
                 modifier = Modifier
                     .weight(1f)
+                    .fillMaxWidth()
                     .then(
                         if (ui.isDealing) {
                             Modifier.pointerInput(Unit) {
