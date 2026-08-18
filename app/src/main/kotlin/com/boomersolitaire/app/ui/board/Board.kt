@@ -432,13 +432,18 @@ private fun BoardCard(
             .graphicsLayer {
                 rotationY = flip.value - 180f
                 cameraDistance = 16f * density.density
-                if (moving || flipping || inDragRun) {
+                if (hinted && !settings.reduceMotion) {
+                    val grow = 1f + 0.035f * pulse
+                    scaleX = grow
+                    scaleY = grow
+                }
+                if (moving || flipping || inDragRun || hinted) {
                     shadowElevation = 12.dp.toPx()
                     this.shape = shape
                 }
             }
             .then(
-                if (hinted) Modifier.border(3.dp, table.highlight.copy(alpha = pulse), shape) else Modifier
+                if (hinted) Modifier.border(4.dp, table.highlight.copy(alpha = 0.5f + 0.5f * pulse), shape) else Modifier
             )
             .then(
                 if (clickTarget != null) {
@@ -462,6 +467,15 @@ private fun BoardCard(
             Box(modifier = Modifier.fillMaxSize().graphicsLayer { rotationY = 180f }) {
                 CardBack(metrics, settings, shape)
             }
+        }
+        if (hinted) {
+            // A warm wash over the whole card: the hint reads even where a
+            // border alone would blend into the artwork.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(table.highlight.copy(alpha = 0.1f + 0.14f * pulse), shape),
+            )
         }
     }
 }
@@ -505,11 +519,7 @@ private fun CardFace(card: Card, metrics: BoardMetrics, settings: Settings, shap
             with(CardArt) {
                 // Centre art first; the corner index draws last so nothing
                 // ever strokes over it.
-                if (card.rank > 10) {
-                    drawFaceCenter(card, w, h, suitColor, table.highlight.copy(alpha = 0.9f), metrics.indexScale)
-                } else {
-                    drawFaceCenter(card, w, h, suitColor, table.highlight, metrics.indexScale)
-                }
+                drawFaceCenter(card, w, h, suitColor, table.courtAccent, metrics.indexScale)
                 val s = w * 0.21f * metrics.indexScale
                 drawSuit(card.suit, Offset(w - s - w * 0.06f, w * 0.07f), s, suitColor)
             }

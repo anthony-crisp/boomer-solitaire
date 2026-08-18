@@ -24,6 +24,8 @@ data class TableColors(
     val blue: Color,   // four-colour deck: diamonds
     val green: Color,  // four-colour deck: clubs
     val highlight: Color,
+    /** Quiet brass for court-card frames — never the hint gold. */
+    val courtAccent: Color,
     val isDark: Boolean,
 )
 
@@ -42,6 +44,7 @@ private val feltTable = TableColors(
     blue = Color(0xFF1F5CA8),
     green = Color(0xFF1E6B3C),
     highlight = Color(0xFFF2C464),
+    courtAccent = Color(0xFFC3A06B),
     isDark = false,
 )
 
@@ -53,6 +56,7 @@ private val linenTable = feltTable.copy(
     cardEdge = Color(0xFFB9B2A0),
     cardBack = Color(0xFF3E6B8C),
     highlight = Color(0xFFC96F2E),
+    courtAccent = Color(0xFFB29260),
 )
 
 private val darkTable = feltTable.copy(
@@ -63,6 +67,7 @@ private val darkTable = feltTable.copy(
     cardBack = Color(0xFF37474F),
     pileOutline = Color(0x4DFFFFFF),
     highlight = Color(0xFFE8B455),
+    courtAccent = Color(0xFFAE9366),
     isDark = true,
 )
 
@@ -78,6 +83,7 @@ private val highContrastTable = feltTable.copy(
     blue = Color(0xFF0000E0),
     green = Color(0xFF006400),
     highlight = Color(0xFFFFD700),
+    courtAccent = Color(0xFF6B5A33),
     isDark = true,
 )
 
