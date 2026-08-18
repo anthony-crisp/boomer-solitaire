@@ -231,7 +231,7 @@ fun GameScreen(
                 // Win overlay with a gentle cascade behind it.
                 val win = ui.winSummary
                 if (win != null) {
-                    WinCelebration(reduceMotion = effectiveSettings.reduceMotion)
+                    WinCelebration(settings = effectiveSettings)
                     WinOverlay(
                         win = win,
                         onPlayAgain = { vm.newGame() },
