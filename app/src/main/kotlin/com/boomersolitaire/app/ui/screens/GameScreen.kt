@@ -25,11 +25,15 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,10 +41,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.boomersolitaire.app.game.GameSound
 import com.boomersolitaire.app.game.GameViewModel
 import com.boomersolitaire.app.game.HintMessage
+import com.boomersolitaire.app.game.SoundManager
 import com.boomersolitaire.app.ui.board.Board
 import com.boomersolitaire.app.ui.board.BoardCallbacks
+import com.boomersolitaire.app.ui.board.WinCelebration
 import com.boomersolitaire.app.ui.theme.LocalTableColors
 import kotlinx.coroutines.delay
 
@@ -51,6 +58,25 @@ fun GameScreen(
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val table = LocalTableColors.current
+    val haptics = LocalHapticFeedback.current
+    val context = LocalContext.current
+
+    val soundManager = remember { SoundManager(context.applicationContext) }
+    LaunchedEffect(Unit) { soundManager.load() }
+    DisposableEffect(Unit) { onDispose { soundManager.release() } }
+    LaunchedEffect(vm) {
+        vm.sounds.collect { sound ->
+            if (vm.ui.value.settings.soundEnabled) soundManager.play(sound)
+            when (sound) {
+                GameSound.PLACE -> haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                GameSound.WIN -> haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                else -> Unit
+            }
+        }
+    }
+    LaunchedEffect(ui.shake?.nonce) {
+        if (ui.shake != null) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
 
     LaunchedEffect(Unit) { vm.resumeOrNew() }
     LifecycleResumeEffect(Unit) {
@@ -59,10 +85,20 @@ fun GameScreen(
     }
     LaunchedEffect(ui.isDealing) {
         if (ui.isDealing) {
-            delay(600)
+            delay(if (ui.settings.reduceMotion) 100 else 1500)
             vm.onDealAnimationDone()
         }
     }
+
+    // Honour the system-wide "remove animations" accessibility setting too.
+    val systemReduceMotion = remember {
+        android.provider.Settings.Global.getFloat(
+            context.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) == 0f
+    }
+    val effectiveSettings = if (systemReduceMotion) ui.settings.copy(reduceMotion = true) else ui.settings
 
     Box(
         modifier = Modifier
@@ -123,11 +159,12 @@ fun GameScreen(
                             onTapWaste = vm::onTapWaste,
                             onTapTableau = vm::onTapTableau,
                             onTapFoundation = vm::onTapFoundation,
+                            onRequestMove = vm::requestMove,
                         )
                     }
                     Board(
                         state = state,
-                        settings = ui.settings,
+                        settings = effectiveSettings,
                         isDealing = ui.isDealing,
                         hint = ui.hint,
                         shake = ui.shake,
@@ -159,9 +196,10 @@ fun GameScreen(
                     }
                 }
 
-                // Win overlay.
+                // Win overlay with a gentle cascade behind it.
                 val win = ui.winSummary
                 if (win != null) {
+                    WinCelebration(reduceMotion = effectiveSettings.reduceMotion)
                     WinOverlay(
                         win = win,
                         onPlayAgain = { vm.newGame() },

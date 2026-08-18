@@ -12,6 +12,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,15 +21,20 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -44,14 +50,25 @@ import com.boomersolitaire.app.game.ShakeEvent
 import com.boomersolitaire.app.ui.theme.LocalTableColors
 import com.boomersolitaire.engine.Card
 import com.boomersolitaire.engine.GameState
+import com.boomersolitaire.engine.Move
 import com.boomersolitaire.engine.Suit
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 class BoardCallbacks(
     val onTapStock: () -> Unit,
     val onTapWaste: () -> Unit,
     val onTapTableau: (column: Int, cardIndex: Int) -> Unit,
     val onTapFoundation: (Suit) -> Unit,
+    /** Drag-and-drop: attempt [move]; shake [cardIds] if it is illegal. */
+    val onRequestMove: (move: Move, cardIds: List<Int>) -> Unit,
+)
+
+/** A drag in progress: the run of cards being carried and its finger offset. */
+private class DragInfo(
+    val source: TapTarget,
+    val cardIds: List<Int>,
+    val offset: Animatable<Offset, *>,
 )
 
 @Composable
@@ -72,8 +89,50 @@ fun Board(
             computeBoardMetrics(widthPx, heightPx, density.density, settings.cardSize, settings.leftHanded)
         }
         val placements = remember(state, metrics) { computePlacements(state, metrics) }
+        val scope = rememberCoroutineScope()
+        val dragState = remember { mutableStateOf<DragInfo?>(null) }
+
+        fun startDrag(source: TapTarget) {
+            val ids = when (source) {
+                is TapTarget.Waste -> listOfNotNull(state.wasteTop?.id)
+                is TapTarget.Tableau -> {
+                    val col = state.tableau[source.column]
+                    if (source.cardIndex in col.faceDownCount until col.cards.size) {
+                        col.cards.subList(source.cardIndex, col.cards.size).map(Card::id)
+                    } else emptyList()
+                }
+                else -> emptyList()
+            }
+            if (ids.isNotEmpty()) {
+                dragState.value = DragInfo(source, ids, Animatable(Offset.Zero, Offset.VectorConverter))
+            }
+        }
+
+        fun endDrag() {
+            val drag = dragState.value ?: return
+            val headId = drag.cardIds.first()
+            val origin = placements[headId] ?: return
+            val dropPos = Offset(origin.x, origin.y) + drag.offset.value
+            val move = resolveDrop(state, metrics, drag.source, dropPos)
+            if (move != null) callbacks.onRequestMove(move, drag.cardIds)
+            scope.launch {
+                drag.offset.animateTo(
+                    Offset.Zero,
+                    spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMedium, visibilityThreshold = Offset(0.5f, 0.5f)),
+                )
+                if (dragState.value === drag) dragState.value = null
+            }
+        }
 
         PileOutlines(metrics, state, callbacks, hint)
+
+        // The hint's destination pulse must sit on top of a non-empty pile,
+        // so it is attached to that pile's top card.
+        val hintDestCardId = when (val dest = hint?.destination) {
+            is HintDestination.TableauColumn -> state.tableau[dest.column].topCard?.id
+            is HintDestination.Foundation -> state.foundationTop(dest.suit)?.id
+            else -> null
+        }
 
         // One composable per card, keyed by stable id; positions animate.
         for (card in Card.fullDeck) {
@@ -85,12 +144,69 @@ fun Board(
                     metrics = metrics,
                     settings = settings,
                     isDealing = isDealing,
-                    hinted = hint?.cardIds?.contains(card.id) == true,
+                    hinted = hint?.cardIds?.contains(card.id) == true || card.id == hintDestCardId,
                     shake = shake?.takeIf { it.cardIds.contains(card.id) },
                     callbacks = callbacks,
+                    dragState = dragState,
+                    onDragStart = ::startDrag,
+                    onDrag = { delta ->
+                        dragState.value?.let { scope.launch { it.offset.snapTo(it.offset.value + delta) } }
+                    },
+                    onDragEnd = ::endDrag,
                 )
             }
         }
+    }
+}
+
+/**
+ * Turn a drop position into a move, with generous targets: anywhere near a
+ * foundation slot sends the card to its own foundation; otherwise the nearest
+ * tableau column within most of a card-width catches the drop.
+ */
+private fun resolveDrop(
+    state: GameState,
+    m: BoardMetrics,
+    source: TapTarget,
+    dropPos: Offset,
+): Move? {
+    val center = dropPos + Offset(m.cardW / 2f, m.cardH / 2f)
+    val singleCard = when (source) {
+        is TapTarget.Waste -> state.wasteTop
+        is TapTarget.Tableau ->
+            state.tableau[source.column].cards.let { if (source.cardIndex == it.size - 1) it[source.cardIndex] else null }
+        else -> null
+    }
+
+    // Near any foundation slot → the card's own foundation.
+    if (singleCard != null) {
+        val nearFoundation = Suit.entries.any { suit ->
+            val pos = m.foundationPos[suit.ordinal]
+            center.x in (pos.x - m.cardW * 0.35f)..(pos.x + m.cardW * 1.35f) &&
+                center.y in (pos.y - m.cardH * 0.4f)..(pos.y + m.cardH * 1.4f)
+        }
+        if (nearFoundation) {
+            return when (source) {
+                is TapTarget.Waste -> Move.WasteToFoundation(singleCard.suit)
+                is TapTarget.Tableau -> Move.TableauToFoundation(source.column)
+                else -> null
+            }
+        }
+    }
+
+    // Nearest tableau column by horizontal distance.
+    val sourceColumn = (source as? TapTarget.Tableau)?.column
+    val target = (0..6)
+        .filter { it != sourceColumn }
+        .minByOrNull { kotlin.math.abs(m.tableauX[it] + m.cardW / 2f - center.x) }
+        ?.takeIf { kotlin.math.abs(m.tableauX[it] + m.cardW / 2f - center.x) < m.cardW * 0.9f }
+        ?.takeIf { center.y > m.tableauTopY - m.cardH * 0.5f }
+        ?: return null
+
+    return when (source) {
+        is TapTarget.Waste -> Move.WasteToTableau(target)
+        is TapTarget.Tableau -> Move.TableauToTableau(source.column, source.cardIndex, target)
+        else -> null
     }
 }
 
@@ -161,17 +277,11 @@ private fun PileOutlines(
     }
 
     for (col in 0..6) {
-        val highlighted = (hint?.destination as? HintDestination.TableauColumn)?.column == col
-        if (state.tableau[col].cards.isEmpty() || highlighted) {
-            val pile = state.tableau[col]
-            val pos = if (pile.cards.isEmpty()) {
-                Offset(m.tableauX[col], m.tableauTopY)
-            } else {
-                // Highlight lands where the moved card would go: just under the pile top.
-                Offset(m.tableauX[col], m.tableauTopY)
-            }
+        // Non-empty destination highlights ride on the pile's top card instead.
+        if (state.tableau[col].cards.isEmpty()) {
+            val highlighted = (hint?.destination as? HintDestination.TableauColumn)?.column == col
             outline(
-                pos,
+                Offset(m.tableauX[col], m.tableauTopY),
                 label = "Column ${col + 1}, empty",
                 onClick = null,
                 highlighted = highlighted,
@@ -209,6 +319,10 @@ private fun BoardCard(
     hinted: Boolean,
     shake: ShakeEvent?,
     callbacks: BoardCallbacks,
+    dragState: State<DragInfo?>,
+    onDragStart: (TapTarget) -> Unit,
+    onDrag: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
 ) {
     val density = LocalDensity.current
     val table = LocalTableColors.current
@@ -220,12 +334,30 @@ private fun BoardCard(
         if (settings.reduceMotion) {
             position.snapTo(target)
         } else {
+            if (isDealing && placement.dealOrder != null && position.value != target) {
+                kotlinx.coroutines.delay(placement.dealOrder * 26L)
+            }
             position.animateTo(
                 target,
                 spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow, visibilityThreshold = Offset(0.5f, 0.5f)),
             )
         }
     }
+
+    // 3D flip: 0f shows the back, 180f the face.
+    val flip = remember { Animatable(if (placement.faceUp) 180f else 0f) }
+    LaunchedEffect(placement.faceUp, settings.reduceMotion) {
+        val end = if (placement.faceUp) 180f else 0f
+        if (settings.reduceMotion) {
+            flip.snapTo(end)
+        } else {
+            if (isDealing && placement.dealOrder != null && flip.value != end) {
+                kotlinx.coroutines.delay(placement.dealOrder * 26L + 120L)
+            }
+            flip.animateTo(end, tween(durationMillis = 260))
+        }
+    }
+    val showFace = flip.value > 90f
 
     // Gentle shake for an invalid move; the card returns home.
     val shakeX = remember { Animatable(0f) }
@@ -246,6 +378,7 @@ private fun BoardCard(
     }
 
     val moving = position.isRunning
+    val flipping = flip.isRunning
     val pulse = pulseAlpha(hinted)
     val shape = RoundedCornerShape(with(density) { (metrics.cardW * 0.09f).toDp() })
     val cardWDp: Dp
@@ -257,13 +390,38 @@ private fun BoardCard(
 
     val tapLabel = describeCard(card, placement)
     val clickTarget = placement.tap
+    val inDragRun = dragState.value?.cardIds?.contains(card.id) == true
+    val draggable = clickTarget is TapTarget.Waste || clickTarget is TapTarget.Tableau
     Box(
         modifier = Modifier
-            .offset { IntOffset((position.value.x + shakeX.value).roundToInt(), position.value.y.roundToInt()) }
-            .zIndex(placement.z + if (moving || shakeX.isRunning) 200f else 0f)
+            .offset {
+                val drag = dragState.value?.takeIf { it.cardIds.contains(card.id) }?.offset?.value ?: Offset.Zero
+                IntOffset(
+                    (position.value.x + shakeX.value + drag.x).roundToInt(),
+                    (position.value.y + drag.y).roundToInt(),
+                )
+            }
+            .zIndex(placement.z + if (inDragRun) 300f else if (moving || flipping || shakeX.isRunning) 200f else 0f)
             .size(cardWDp, cardHDp)
+            .then(
+                if (draggable) {
+                    Modifier.pointerInput(clickTarget) {
+                        detectDragGestures(
+                            onDragStart = { onDragStart(clickTarget!!) },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                onDrag(amount)
+                            },
+                            onDragEnd = { onDragEnd() },
+                            onDragCancel = { onDragEnd() },
+                        )
+                    }
+                } else Modifier
+            )
             .graphicsLayer {
-                if (moving) {
+                rotationY = flip.value - 180f
+                cameraDistance = 16f * density.density
+                if (moving || flipping || inDragRun) {
                     shadowElevation = 12.dp.toPx()
                     this.shape = shape
                 }
@@ -285,10 +443,14 @@ private fun BoardCard(
             )
             .semantics { contentDescription = tapLabel },
     ) {
-        if (placement.faceUp) {
+        if (showFace) {
             CardFace(card, metrics, settings, shape)
         } else {
-            CardBack(metrics, shape)
+            // The back is mirrored by the flip rotation; mirror it again so
+            // its pattern reads correctly at rest.
+            Box(modifier = Modifier.fillMaxSize().graphicsLayer { rotationY = 180f }) {
+                CardBack(metrics, settings, shape)
+            }
         }
     }
 }
@@ -306,39 +468,55 @@ private fun CardFace(card: Card, metrics: BoardMetrics, settings: Settings, shap
             Suit.CLUBS -> table.green
         }
     }
+    // Oversized indices: big rank top-left, big suit top-right — both stay
+    // visible in a fanned column, whichever hand holds the phone.
     val indexSize = with(density) { (metrics.cardW * 0.30f * metrics.indexScale).toSp() }
-    val centerSize = with(density) { (metrics.cardW * 0.44f).toSp() }
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(table.cardFace, shape)
             .border(1.dp, table.cardEdge, shape),
     ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            with(CardArt) {
+                // Top-right index suit.
+                val s = w * 0.21f * metrics.indexScale
+                drawSuit(card.suit, Offset(w - s - w * 0.06f, w * 0.07f), s, suitColor)
+                if (card.rank > 10) {
+                    drawFaceCenter(card, w, h, suitColor, table.highlight.copy(alpha = 0.9f))
+                } else {
+                    drawFaceCenter(card, w, h, suitColor, table.highlight)
+                }
+            }
+        }
         Text(
-            text = "${rankLabel(card.rank)}${suitGlyph(card.suit)}",
+            text = rankLabel(card.rank),
             color = suitColor,
             fontSize = indexSize,
             fontWeight = FontWeight.Bold,
+            lineHeight = indexSize,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = 3.dp, y = 0.dp),
-        )
-        Text(
-            text = suitGlyph(card.suit),
-            color = suitColor,
-            fontSize = centerSize,
-            modifier = Modifier.align(Alignment.BottomEnd).offset(x = (-3).dp, y = 0.dp),
+                .offset(x = 4.dp, y = 1.dp),
         )
     }
 }
 
 @Composable
-private fun CardBack(metrics: BoardMetrics, shape: RoundedCornerShape) {
+private fun CardBack(metrics: BoardMetrics, settings: Settings, shape: RoundedCornerShape) {
     val table = LocalTableColors.current
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(table.cardBack, shape)
             .border(1.dp, table.cardBackAccent.copy(alpha = 0.6f), shape),
-    )
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            with(CardArt) {
+                drawCardBack(settings.cardBack, size.width, size.height, table)
+            }
+        }
+    }
 }

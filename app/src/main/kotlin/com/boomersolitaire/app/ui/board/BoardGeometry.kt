@@ -36,6 +36,8 @@ data class CardPlacement(
     val z: Float,
     val faceUp: Boolean,
     val tap: TapTarget?,
+    /** Order this card is dealt in at game start (tableau cards only). */
+    val dealOrder: Int? = null,
 )
 
 fun computeBoardMetrics(
@@ -79,28 +81,37 @@ fun computeBoardMetrics(
             isLandscape = false,
         )
     } else {
-        // Landscape: stock/waste on one side, foundations on the other,
-        // tableau in the middle.
+        // Landscape: stock/waste on one side, a 2x2 foundation grid on the
+        // other, tableau in the middle.
         val cardH = ((heightPx - 2 * margin) / 3.35f).coerceAtLeast(40f)
         var cardW = cardH / 1.42f
-        val needed = 9 * cardW + 8 * gap + 2 * margin + 2 * gap
-        if (needed > widthPx) cardW = (widthPx - 2 * margin - 10 * gap) / 9f
+        val needed = 10 * cardW + 12 * gap + 2 * margin
+        if (needed > widthPx) cardW = (widthPx - 2 * margin - 12 * gap) / 10f
         val cardH2 = cardW * 1.42f
-        val sideL = margin
-        val sideR = widthPx - margin - cardW
-        val leftX = if (leftHanded) sideR else sideL
-        val rightX = if (leftHanded) sideL else sideR
+        val mirror = { x: Float -> if (leftHanded) widthPx - x - cardW else x }
+        val leftX = mirror(margin)
+        val rightInner = widthPx - margin - cardW // right-most column
+        val rightOuter = rightInner - cardW - gap
+        val f1x = mirror(rightOuter)
+        val f2x = mirror(rightInner)
         val tableauLeft = margin + cardW + 3 * gap
-        val tableauWidth = widthPx - 2 * (margin + cardW + 3 * gap)
+        val tableauRight = rightOuter - 3 * gap
+        val tableauWidth = tableauRight - tableauLeft
         val colGap = (tableauWidth - 7 * cardW) / 6f
+        val tableauXs = (0..6).map { tableauLeft + it * (cardW + colGap) }
         return BoardMetrics(
             boardW = widthPx, boardH = heightPx,
             cardW = cardW, cardH = cardH2,
             stockPos = Offset(leftX, margin),
             wastePos = Offset(leftX, margin + cardH2 + gap * 2),
-            wasteFanDx = 0f, // landscape waste fans downward visually via z only
-            foundationPos = (0..3).map { f -> Offset(rightX, margin + f * (cardH2 + gap)) },
-            tableauX = (0..6).map { tableauLeft + it * (cardW + colGap) },
+            wasteFanDx = 0f, // landscape waste stacks; only the top is shown
+            foundationPos = listOf(
+                Offset(f1x, margin),                      // spades
+                Offset(f2x, margin),                      // hearts
+                Offset(f1x, margin + cardH2 + gap),       // diamonds
+                Offset(f2x, margin + cardH2 + gap),       // clubs
+            ),
+            tableauX = if (leftHanded) tableauXs.map { mirror(it) }.reversed() else tableauXs,
             tableauTopY = margin,
             faceUpDy = cardH2 * (0.26f * sizeScale).coerceAtMost(0.32f),
             faceDownDy = cardH2 * 0.10f,
@@ -171,10 +182,13 @@ fun computePlacements(state: GameState, m: BoardMetrics): Map<Int, CardPlacement
         }
         var y = m.tableauTopY
         pile.cards.forEachIndexed { idx, card ->
+            // Deal order: round idx deals one card to each of columns idx..6.
+            val dealOrder = (0 until idx).sumOf { 7 - it } + (col - idx)
             out[card.id] = CardPlacement(
                 x = x, y = y, z = (idx + 1).toFloat(),
                 faceUp = idx >= downCount,
                 tap = if (idx >= downCount) TapTarget.Tableau(col, idx) else null,
+                dealOrder = if (idx <= col) dealOrder else null,
             )
             y += if (idx < downCount) m.faceDownDy else dyUp
         }
