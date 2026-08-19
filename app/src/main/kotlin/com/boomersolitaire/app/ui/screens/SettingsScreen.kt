@@ -1,7 +1,8 @@
 package com.boomersolitaire.app.ui.screens
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -200,6 +201,7 @@ private fun ToggleRow(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun <T> ChoiceRow(
     title: String,
@@ -212,11 +214,9 @@ private fun <T> ChoiceRow(
         Text(title, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
         Text(description, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f))
         Spacer(Modifier.height(4.dp))
-        Row(
+        FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             for ((value, label) in options) {
                 FilterChip(
