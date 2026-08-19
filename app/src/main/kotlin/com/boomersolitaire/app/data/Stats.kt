@@ -31,6 +31,15 @@ interface GameRecordDao {
 
     @Query("SELECT * FROM game_records WHERE won = 1 ORDER BY durationMs ASC LIMIT :limit")
     fun bestByTime(limit: Int): Flow<List<GameRecord>>
+
+    /**
+     * A v1.2 bug recorded games begun via "Play again" with a ~0:00 duration
+     * (the clock never restarted). Those rows would stand as unbeatable
+     * records forever, so delete any win faster than a physically possible
+     * 250ms per move. Idempotent; run at startup.
+     */
+    @Query("DELETE FROM game_records WHERE won = 1 AND durationMs < moves * 250")
+    suspend fun purgeImpossibleDurations()
 }
 
 @Database(entities = [GameRecord::class], version = 1, exportSchema = false)

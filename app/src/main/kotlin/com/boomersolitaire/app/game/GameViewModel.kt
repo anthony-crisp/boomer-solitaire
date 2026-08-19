@@ -104,6 +104,7 @@ class GameViewModel(
     private var autoCompleteJob: Job? = null
 
     init {
+        viewModelScope.launch { statsDao.purgeImpossibleDurations() }
         viewModelScope.launch {
             settingsRepo.settings.collect { s ->
                 _ui.value = _ui.value.copy(settings = s)
@@ -177,6 +178,10 @@ class GameViewModel(
             provenWinnable = deal.provenWinnable
             startedAtEpochMs = System.currentTimeMillis()
             accumulatedMs = 0
+            // Restart the clock here, not in the screen-resume hook: "Play
+            // again" never leaves the game screen, and a win nulls the clock —
+            // without this, every replayed game recorded a 0:00 duration.
+            resumedAtMs = System.currentTimeMillis()
             recorded = false
             _sounds.tryEmit(GameSound.SHUFFLE)
             publish(dealing = true)
