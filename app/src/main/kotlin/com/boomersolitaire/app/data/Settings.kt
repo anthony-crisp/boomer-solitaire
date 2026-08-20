@@ -74,6 +74,17 @@ class SettingsRepository(private val context: Context) {
     /** Day streak, framed only as encouragement. Days are local epoch days. */
     val dayStreak: Flow<Long> = context.settingsStore.data.map { it[Keys.dayStreak] ?: 0L }
 
+    /**
+     * Wipe the run of days. Called alongside clearing the scores — the streak
+     * is one of her numbers, so "start again from zero" has to include it.
+     */
+    suspend fun clearDayStreak() {
+        context.settingsStore.edit { p ->
+            p[Keys.dayStreak] = 0L
+            p[Keys.lastPlayedDay] = 0L
+        }
+    }
+
     suspend fun recordPlayedToday(todayEpochDay: Long) {
         context.settingsStore.edit { p ->
             val last = p[Keys.lastPlayedDay] ?: 0L

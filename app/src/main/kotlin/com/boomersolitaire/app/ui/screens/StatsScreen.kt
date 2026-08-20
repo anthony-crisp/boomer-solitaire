@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.boomersolitaire.app.data.GameRecord
 import com.boomersolitaire.app.data.GameRecordDao
+import com.boomersolitaire.app.data.SettingsRepository
 import com.boomersolitaire.app.data.computeModeStats
 import com.boomersolitaire.app.ui.theme.BackToMenuButton
 import com.boomersolitaire.app.ui.theme.GlassPanel
@@ -44,7 +45,12 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @Composable
-fun StatsScreen(dao: GameRecordDao, dayStreak: Long, onBack: () -> Unit) {
+fun StatsScreen(
+    dao: GameRecordDao,
+    settingsRepo: SettingsRepository,
+    dayStreak: Long,
+    onBack: () -> Unit,
+) {
     val table = LocalTableColors.current
     val records by dao.all().collectAsStateWithLifecycle(initialValue = emptyList())
     val bestGames by dao.bestByTime(10).collectAsStateWithLifecycle(initialValue = emptyList())
@@ -57,15 +63,19 @@ fun StatsScreen(dao: GameRecordDao, dayStreak: Long, onBack: () -> Unit) {
             title = { Text("Clear your scores?", fontSize = 22.sp, fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "Every game on this page will be erased and the counting starts " +
-                        "again from zero. The game you are playing is not affected.",
+                    "Every game on this page, and your run of days, will be erased " +
+                        "and the counting starts again from zero. The game you are " +
+                        "playing is not affected.",
                     fontSize = 18.sp,
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     confirmClear = false
-                    scope.launch { dao.clearAll() }
+                    scope.launch {
+                        dao.clearAll()
+                        settingsRepo.clearDayStreak()
+                    }
                 }) { Text("Erase my scores", fontSize = 18.sp) }
             },
             dismissButton = {
