@@ -75,7 +75,11 @@ private fun App(
                 )
             }
             composable("scores") {
-                StatsScreen(dao = statsDb.dao(), onBack = { nav.popBackStack("home", inclusive = false) })
+                StatsScreen(
+                    dao = statsDb.dao(),
+                    dayStreak = dayStreak,
+                    onBack = { nav.popBackStack("home", inclusive = false) },
+                )
             }
             composable("settings") {
                 SettingsScreen(repo = settingsRepo, onBack = { nav.popBackStack("home", inclusive = false) })

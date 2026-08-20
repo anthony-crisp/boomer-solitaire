@@ -61,7 +61,8 @@ fun HomeScreen(
             title = { Text("Start a new game?", fontSize = 22.sp, fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "The game you have on the go will be put away and a fresh one dealt.",
+                    "The game you have on the go will be cleared for good and a " +
+                        "fresh one dealt.",
                     fontSize = 18.sp,
                 )
             },

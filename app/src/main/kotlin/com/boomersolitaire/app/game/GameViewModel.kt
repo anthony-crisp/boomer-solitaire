@@ -183,7 +183,7 @@ class GameViewModel(
 
     /** Caller must hold [gameLoad]. */
     private suspend fun startNewGame() {
-        recordSetAsideIfNeeded()
+        recordUnfinishedGame()
         val settings = _ui.value.settings
         _ui.value = _ui.value.copy(
             state = null,
@@ -390,12 +390,13 @@ class GameViewModel(
     }
 
     /**
-     * Record a game the player is walking away from — as *set aside*, never as
-     * a loss. Turning the deck over is not playing, so a game only counts once
-     * a card has actually been moved; otherwise a curious tap on Draw would
-     * show up in her statistics as a whole game.
+     * Record a game the player is leaving behind by starting a new one. It is
+     * marked unfinished rather than lost — she did not fail, the deal is
+     * simply gone. Turning the deck over is not playing, so a game only counts
+     * once a card has actually been moved; otherwise a curious tap on Draw
+     * would show up in her statistics as a whole game.
      */
-    private suspend fun recordSetAsideIfNeeded() {
+    private suspend fun recordUnfinishedGame() {
         val g = game ?: return
         val realMoves = g.moves.count { it !is Move.Draw && it !is Move.Recycle }
         if (!g.state.isWon && realMoves > 0) {

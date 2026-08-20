@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -14,12 +15,16 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -33,15 +38,44 @@ import com.boomersolitaire.app.ui.theme.BackToMenuButton
 import com.boomersolitaire.app.ui.theme.GlassPanel
 import com.boomersolitaire.app.ui.theme.LocalTableColors
 import com.boomersolitaire.app.ui.theme.feltBackground
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @Composable
-fun StatsScreen(dao: GameRecordDao, onBack: () -> Unit) {
+fun StatsScreen(dao: GameRecordDao, dayStreak: Long, onBack: () -> Unit) {
     val table = LocalTableColors.current
     val records by dao.all().collectAsStateWithLifecycle(initialValue = emptyList())
     val bestGames by dao.bestByTime(10).collectAsStateWithLifecycle(initialValue = emptyList())
+    val scope = rememberCoroutineScope()
+    var confirmClear by remember { mutableStateOf(false) }
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Clear your scores?", fontSize = 22.sp, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Every game on this page will be erased and the counting starts " +
+                        "again from zero. The game you are playing is not affected.",
+                    fontSize = 18.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmClear = false
+                    scope.launch { dao.clearAll() }
+                }) { Text("Erase my scores", fontSize = 18.sp) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) {
+                    Text("Keep them", fontSize = 18.sp)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -72,19 +106,27 @@ fun StatsScreen(dao: GameRecordDao, onBack: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
             )
+            if (dayStreak > 1) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "You've played $dayStreak days in a row",
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
+                )
+            }
             Spacer(Modifier.height(16.dp))
 
             for (drawThree in listOf(false, true)) {
                 val stats = remember(records, drawThree) { computeModeStats(records, drawThree) }
-                if (stats.started == 0 && drawThree) continue
+                if (stats.started == 0) continue
                 StatsCard(
                     title = if (drawThree) "Draw 3" else "Draw 1",
                     highlight = "Games won" to "${stats.won}",
                     rows = buildList {
                         add("Games started" to "${stats.started}")
-                        if (stats.setAside > 0) add("Set aside for later" to "${stats.setAside}")
-                        add("Winning streak" to "${stats.currentStreak}")
-                        add("Best streak" to "${stats.bestStreak}")
+                        if (stats.unfinished > 0) add("Not finished" to "${stats.unfinished}")
+                        add("Finished in a row" to "${stats.currentStreak}")
+                        add("Best run" to "${stats.bestStreak}")
                         stats.fastestWinMs?.let { add("Fastest win" to formatDuration(it)) }
                         stats.fewestMoves?.let { add("Fewest moves" to "$it") }
                     },
@@ -111,6 +153,18 @@ fun StatsScreen(dao: GameRecordDao, onBack: () -> Unit) {
                     fontSize = 18.sp,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
                 )
+            } else {
+                Spacer(Modifier.height(8.dp))
+                TextButton(
+                    onClick = { confirmClear = true },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Text(
+                        "Clear my scores",
+                        fontSize = 18.sp,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                    )
+                }
             }
             Spacer(Modifier.height(24.dp))
         }
