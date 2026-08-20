@@ -75,6 +75,15 @@ class GameUndoTest {
     }
 
     @Test
+    fun `moves is a snapshot, not the live history`() {
+        val game = Game(Dealer.deal(11L, 1))
+        game.play(Move.Draw)
+        val snapshot = game.moves
+        game.play(Move.Draw)
+        assertEquals("Retained move list must not observe later play", 1, snapshot.size)
+    }
+
+    @Test
     fun `play returns new state and records history`() {
         val game = Game(Dealer.deal(11L, 1))
         val next = game.play(Move.Draw)

@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.boomersolitaire.app.data.GameRecord
 import com.boomersolitaire.app.data.GameRecordDao
-import com.boomersolitaire.app.data.ModeStats
 import com.boomersolitaire.app.data.SaveRepository
 import com.boomersolitaire.app.data.SavedGame
 import com.boomersolitaire.app.data.Settings
@@ -17,7 +16,6 @@ import com.boomersolitaire.engine.Game
 import com.boomersolitaire.engine.GameState
 import com.boomersolitaire.engine.Hints
 import com.boomersolitaire.engine.Move
-import com.boomersolitaire.engine.Rules
 import com.boomersolitaire.engine.Suit
 import com.boomersolitaire.engine.Taps
 import com.boomersolitaire.engine.WinnableDealer
@@ -33,6 +31,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
@@ -103,6 +103,9 @@ class GameViewModel(
     private var hintJob: Job? = null
     private var autoCompleteJob: Job? = null
 
+    /** Serialises the two paths that install a game: dealing and restoring. */
+    private val gameLoad = Mutex()
+
     init {
         viewModelScope.launch { statsDao.purgeImpossibleDurations() }
         viewModelScope.launch {
@@ -126,7 +129,7 @@ class GameViewModel(
     // ---- Lifecycle from the game screen ----
 
     fun onScreenResumed() {
-        if (resumedAtMs == null) resumedAtMs = System.currentTimeMillis()
+        if (resumedAtMs == null && !_ui.value.isWon) resumedAtMs = System.currentTimeMillis()
         viewModelScope.launch {
             settingsRepo.recordPlayedToday(LocalDate.now().toEpochDay())
         }
@@ -140,21 +143,34 @@ class GameViewModel(
 
     // ---- Game setup ----
 
-    /** Resume the saved game if one exists, else start a new one. */
+    /**
+     * Resume the saved game if one exists, else start a new one.
+     *
+     * Serialised against [newGame] with [gameLoad]. Both assign `game` only
+     * after a suspension — dealing runs the solver, restoring reads DataStore —
+     * so without the lock a "New game" tapped on the home screen would let the
+     * game screen restore the *old* save into the gap and the player could
+     * make moves that the arriving deal then threw away.
+     */
     fun resumeOrNew() {
-        if (game != null) return
         viewModelScope.launch {
-            val saved = saveRepo.savedGame.first()
-            if (saved != null && !Game.restore(saved.initial, saved.moves).state.isWon) {
-                val restored = Game.restore(saved.initial, saved.moves)
-                game = restored
-                startedAtEpochMs = saved.startedAtEpochMs
-                accumulatedMs = saved.elapsedMs
-                provenWinnable = saved.provenWinnable
-                recorded = false
-                publish(dealing = false)
-            } else {
-                newGame()
+            gameLoad.withLock {
+                if (game != null) return@withLock
+                val saved = saveRepo.savedGame.first()
+                val restored = saved?.let {
+                    withContext(Dispatchers.Default) { Game.restore(it.initial, it.moves) }
+                }
+                if (saved != null && restored != null && !restored.state.isWon) {
+                    game = restored
+                    startedAtEpochMs = saved.startedAtEpochMs
+                    accumulatedMs = saved.elapsedMs
+                    resumedAtMs = null
+                    provenWinnable = saved.provenWinnable
+                    recorded = false
+                    publish(dealing = false)
+                } else {
+                    startNewGame()
+                }
             }
         }
     }
@@ -162,31 +178,42 @@ class GameViewModel(
     fun newGame() {
         autoCompleteJob?.cancel()
         hintJob?.cancel()
-        viewModelScope.launch {
-            recordAbandonIfNeeded()
-            val settings = _ui.value.settings
-            _ui.value = _ui.value.copy(state = null, isDealing = true, winSummary = null, isWon = false, hint = null)
-            val drawCount = if (settings.drawThree) 3 else 1
-            val deal = withContext(Dispatchers.Default) {
-                if (settings.winnableDeals) {
-                    WinnableDealer.winnableDeal(drawCount, maxNodesPerAttempt = 60_000)
-                } else {
-                    WinnableDealer.randomDeal(drawCount)
-                }
+        viewModelScope.launch { gameLoad.withLock { startNewGame() } }
+    }
+
+    /** Caller must hold [gameLoad]. */
+    private suspend fun startNewGame() {
+        recordSetAsideIfNeeded()
+        val settings = _ui.value.settings
+        _ui.value = _ui.value.copy(
+            state = null,
+            isDealing = true,
+            winSummary = null,
+            isWon = false,
+            hint = null,
+            shake = null,
+            isAutoCompleting = false,
+        )
+        val drawCount = if (settings.drawThree) 3 else 1
+        val deal = withContext(Dispatchers.Default) {
+            if (settings.winnableDeals) {
+                WinnableDealer.winnableDeal(drawCount, maxNodesPerAttempt = 60_000)
+            } else {
+                WinnableDealer.randomDeal(drawCount)
             }
-            game = Game(deal.state)
-            provenWinnable = deal.provenWinnable
-            startedAtEpochMs = System.currentTimeMillis()
-            accumulatedMs = 0
-            // Restart the clock here, not in the screen-resume hook: "Play
-            // again" never leaves the game screen, and a win nulls the clock —
-            // without this, every replayed game recorded a 0:00 duration.
-            resumedAtMs = System.currentTimeMillis()
-            recorded = false
-            _sounds.tryEmit(GameSound.SHUFFLE)
-            publish(dealing = true)
-            persist()
         }
+        game = Game(deal.state)
+        provenWinnable = deal.provenWinnable
+        startedAtEpochMs = System.currentTimeMillis()
+        accumulatedMs = 0
+        // Restart the clock here, not in the screen-resume hook: "Play
+        // again" never leaves the game screen, and a win nulls the clock —
+        // without this, every replayed game recorded a 0:00 duration.
+        resumedAtMs = System.currentTimeMillis()
+        recorded = false
+        _sounds.tryEmit(GameSound.SHUFFLE)
+        publish(dealing = true)
+        persist()
     }
 
     /** Called by the board when the deal animation has finished. */
@@ -302,21 +329,26 @@ class GameViewModel(
         autoCompleteJob?.cancel()
         autoCompleteJob = viewModelScope.launch {
             _ui.value = _ui.value.copy(isAutoCompleting = true)
-            for (move in AutoComplete.autoCompleteMoves(g.state)) {
-                if (g.play(move) == null) break
-                _sounds.tryEmit(GameSound.PLACE)
-                publish(dealing = false)
-                delay(if (_ui.value.settings.reduceMotion) 60L else 160L)
+            try {
+                for (move in AutoComplete.autoCompleteMoves(g.state)) {
+                    if (g.play(move) == null) break
+                    _sounds.tryEmit(GameSound.PLACE)
+                    publish(dealing = false)
+                    delay(if (_ui.value.settings.reduceMotion) 60L else 160L)
+                }
+                afterMove()
+            } finally {
+                // Undo cancels this job mid-cascade; without the finally the
+                // flag latched true and "Finish game" never came back.
+                _ui.value = _ui.value.copy(isAutoCompleting = false)
             }
-            _ui.value = _ui.value.copy(isAutoCompleting = false)
-            afterMove()
         }
     }
 
     // ---- Bookkeeping ----
 
     private fun afterMove(countAsMove: Boolean = true) {
-        _ui.value = _ui.value.copy(hint = null)
+        _ui.value = _ui.value.copy(hint = null, shake = null)
         publish(dealing = false)
         persist()
         val g = game ?: return
@@ -329,7 +361,7 @@ class GameViewModel(
 
     private suspend fun recordWin() {
         val g = game ?: return
-        val duration = accumulatedMs
+        val duration = accumulatedMs.coerceAtLeast(0)
         val drawThree = g.state.drawCount == 3
         val prior = computeModeStats(statsDao.all().first(), drawThree)
         statsDao.insert(
@@ -357,15 +389,23 @@ class GameViewModel(
         )
     }
 
-    private suspend fun recordAbandonIfNeeded() {
+    /**
+     * Record a game the player is walking away from — as *set aside*, never as
+     * a loss. Turning the deck over is not playing, so a game only counts once
+     * a card has actually been moved; otherwise a curious tap on Draw would
+     * show up in her statistics as a whole game.
+     */
+    private suspend fun recordSetAsideIfNeeded() {
         val g = game ?: return
-        if (!g.state.isWon && g.moveCount > 0) {
+        val realMoves = g.moves.count { it !is Move.Draw && it !is Move.Recycle }
+        if (!g.state.isWon && realMoves > 0) {
             statsDao.insert(
                 GameRecord(
                     endedAtEpochMs = System.currentTimeMillis(),
                     drawThree = g.state.drawCount == 3,
                     won = false,
-                    durationMs = currentElapsed(),
+                    abandoned = true,
+                    durationMs = currentElapsed().coerceAtLeast(0),
                     moves = g.moveCount,
                 ),
             )

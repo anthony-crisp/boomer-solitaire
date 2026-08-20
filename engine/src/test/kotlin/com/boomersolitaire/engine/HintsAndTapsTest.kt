@@ -44,20 +44,33 @@ class HintsAndTapsTest {
     }
 
     @Test
-    fun `hint falls back to drawing from stock`() {
-        // Nothing constructive on the board, but the stock has cards.
+    fun `hint falls back to drawing when a card in the stock is playable`() {
+        // Nothing constructive on the table, but the 10 of spades in the
+        // stock will land on the jack of diamonds once it is turned up.
         val state = emptyBoard()
-            .withStock(card(2, Suit.CLUBS))
+            .withStock(card(10, Suit.SPADES))
             .withColumn(0, listOf(card(9, Suit.HEARTS)))
             .withColumn(1, listOf(card(11, Suit.DIAMONDS)))
         assertEquals(Hints.Hint.DrawFromStock, Hints.hint(state))
     }
 
     @Test
-    fun `hint does not suggest pointless king shuffling`() {
-        // A bare king with nothing underneath should not be waved between empty columns.
+    fun `hint does not send the player through a stock that can never help`() {
+        // Turning this deck over forever accomplishes nothing: say so kindly
+        // rather than repeating "try drawing".
         val state = emptyBoard()
             .withStock(card(2, Suit.CLUBS))
+            .withColumn(0, listOf(card(9, Suit.HEARTS)))
+            .withColumn(1, listOf(card(11, Suit.DIAMONDS)))
+        assertEquals(Hints.Hint.NoMoves, Hints.hint(state))
+    }
+
+    @Test
+    fun `hint does not suggest pointless king shuffling`() {
+        // A bare king with nothing underneath should not be waved between
+        // empty columns — drawing the playable queen is the better advice.
+        val state = emptyBoard()
+            .withStock(card(12, Suit.SPADES))
             .withColumn(0, listOf(card(13, Suit.HEARTS)))
         assertEquals(Hints.Hint.DrawFromStock, Hints.hint(state))
     }
@@ -68,6 +81,34 @@ class HintsAndTapsTest {
             .withColumn(0, listOf(card(9, Suit.HEARTS)), faceDown = 1)
             .withColumn(1, listOf(card(11, Suit.DIAMONDS)), faceDown = 1)
         assertEquals(Hints.Hint.NoMoves, Hints.hint(state))
+    }
+
+    @Test
+    fun `hint will not play a waste card up in draw three when it spaces the cycle`() {
+        // Both red foundations are on the two, so the three of clubs passes
+        // the ordinary tableau-builder safety test — but in draw 3 it is also
+        // holding the cycle's spacing, so it must not be recommended.
+        val base = emptyBoard(drawCount = 3)
+            .withFoundation(Suit.CLUBS, 2)
+            .withFoundation(Suit.HEARTS, 2)
+            .withFoundation(Suit.DIAMONDS, 2)
+            .withWaste(card(3, Suit.CLUBS))
+            .withStock(card(7, Suit.SPADES), card(8, Suit.SPADES))
+            .withColumn(0, listOf(card(4, Suit.SPADES), card(9, Suit.HEARTS)), faceDown = 1)
+            .withColumn(1, listOf(card(10, Suit.SPADES)))
+        // In draw 3 the hint should prefer uncovering a card instead.
+        assertEquals(
+            Hints.Hint.Suggestion(Move.TableauToTableau(0, 1, 1)),
+            Hints.hint(base),
+        )
+
+        // The identical position in draw 1 has no such dependency, so there
+        // the same play is exactly what should be suggested.
+        val drawOne = base.copy(drawCount = 1)
+        assertEquals(
+            Hints.Hint.Suggestion(Move.WasteToFoundation(Suit.CLUBS)),
+            Hints.hint(drawOne),
+        )
     }
 
     // ---- Tap-to-move ----

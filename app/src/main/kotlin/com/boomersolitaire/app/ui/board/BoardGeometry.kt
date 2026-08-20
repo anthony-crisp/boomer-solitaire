@@ -198,8 +198,12 @@ fun computePlacements(state: GameState, m: BoardMetrics): Map<Int, CardPlacement
         val naturalHeight = downCount * m.faceDownDy + (upCount - 1).coerceAtLeast(0) * dyUp + m.cardH
         val available = maxBottom - m.tableauTopY
         if (naturalHeight > available && upCount > 1) {
+            // Compress to fit. The old floor here raised the pitch back above
+            // the fitting value, so a long column in landscape at a large card
+            // size overflowed behind the button bar. Fit wins; a very long run
+            // simply gets a tighter fan.
             dyUp = ((available - m.cardH - downCount * m.faceDownDy) / (upCount - 1))
-                .coerceAtLeast(m.cardH * 0.14f)
+                .coerceAtLeast(m.cardH * 0.055f)
         }
         var y = m.tableauTopY
         pile.cards.forEachIndexed { idx, card ->

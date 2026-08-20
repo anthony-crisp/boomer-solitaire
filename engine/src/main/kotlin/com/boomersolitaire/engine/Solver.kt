@@ -117,6 +117,10 @@ object Solver {
     /**
      * A foundation play is safe when both opposite-colour foundations have
      * reached at least rank-1: no tableau build could ever need this card.
+     *
+     * This reasons about the card's role as a TABLEAU builder only, so it is
+     * the right test for a card taken from a tableau column. For a card taken
+     * from the waste, use [isSafeWasteFoundationPlay].
      */
     fun isSafeFoundationPlay(state: GameState, card: Card): Boolean {
         if (card.rank <= 2) return true
@@ -126,13 +130,27 @@ object Solver {
         return minOpposite >= card.rank - 1
     }
 
+    /**
+     * Whether playing [card] up FROM THE WASTE is safe.
+     *
+     * In draw-3 a waste card has a second job beyond building: it is a spacer
+     * in the draw cycle, and which cards ever reach the top of the waste
+     * depends on how many cards sit below them. Playing one up shortens the
+     * cycle and can permanently bury a card the win needs — so the ordinary
+     * tableau-builder test is not sufficient there. In draw-1 every stock card
+     * reaches the top on every pass, so no such dependency exists.
+     */
+    fun isSafeWasteFoundationPlay(state: GameState, card: Card): Boolean =
+        isSafeFoundationPlay(state, card) &&
+            (state.drawCount == 1 || state.stock.size + state.waste.size <= 1)
+
     /** Greedily apply all safe foundation plays; never loses winnability. */
     fun normalize(start: GameState): GameState {
         var state = start
         while (true) {
             var played = false
             state.wasteTop?.let { card ->
-                if (Rules.canPlaceOnFoundation(state, card) && isSafeFoundationPlay(state, card)) {
+                if (Rules.canPlaceOnFoundation(state, card) && isSafeWasteFoundationPlay(state, card)) {
                     state = Rules.apply(state, Move.WasteToFoundation(card.suit))!!
                     played = true
                 }

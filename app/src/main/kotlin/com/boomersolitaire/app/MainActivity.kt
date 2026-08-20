@@ -50,22 +50,22 @@ private fun App(
 
     BoomerTheme(theme = settings.theme) {
         val nav = rememberNavController()
-        val savedGame by saveRepo.savedGame.collectAsStateWithLifecycle(initialValue = null)
+        val hasSavedGame by saveRepo.hasSavedGame.collectAsStateWithLifecycle(initialValue = false)
         val dayStreak by settingsRepo.dayStreak.collectAsStateWithLifecycle(initialValue = 0L)
 
         NavHost(navController = nav, startDestination = "home") {
             composable("home") {
                 HomeScreen(
                     vm = vm,
-                    hasSavedGame = savedGame != null,
+                    hasSavedGame = hasSavedGame,
                     dayStreak = dayStreak,
-                    onPlay = { nav.navigate("game") },
+                    onPlay = { nav.navigate("game") { launchSingleTop = true } },
                     onNewGame = {
                         vm.newGame()
-                        nav.navigate("game")
+                        nav.navigate("game") { launchSingleTop = true }
                     },
-                    onScores = { nav.navigate("scores") },
-                    onSettings = { nav.navigate("settings") },
+                    onScores = { nav.navigate("scores") { launchSingleTop = true } },
+                    onSettings = { nav.navigate("settings") { launchSingleTop = true } },
                 )
             }
             composable("game") {

@@ -22,10 +22,14 @@ object Hints {
         val moves = Rules.legalMoves(state)
         if (moves.isEmpty()) return Hint.NoMoves
 
-        // 1. Safe foundation plays.
+        // 1. Safe foundation plays. A waste card needs the stricter test:
+        // in draw-3 it may be holding the draw cycle's spacing together.
         moves.firstOrNull { move ->
             val card = foundationCard(state, move) ?: return@firstOrNull false
-            Solver.isSafeFoundationPlay(state, card)
+            when (move) {
+                is Move.WasteToFoundation -> Solver.isSafeWasteFoundationPlay(state, card)
+                else -> Solver.isSafeFoundationPlay(state, card)
+            }
         }?.let { return Hint.Suggestion(it) }
 
         // 2. Tableau moves that flip a face-down card (deepest pile first).
@@ -57,15 +61,51 @@ object Hints {
             }
             ?.let { return Hint.Suggestion(it) }
 
-        // 5. Any foundation play.
-        moves.firstOrNull { foundationCard(state, it) != null }
+        // 5. Any tableau card that can go up.
+        moves.filterIsInstance<Move.TableauToFoundation>().firstOrNull()
             ?.let { return Hint.Suggestion(it) }
 
-        // Deliberately not suggested: card shuffling between tableau columns
+        // 6. Drawing — but only if a card somewhere in the cycle can actually
+        // be played. Turning the deck forever is busywork, and saying so
+        // plainly is kinder than an endless "try drawing".
+        val canDraw = moves.any { it is Move.Draw || it is Move.Recycle }
+        if (canDraw && drawCycleHasAPlay(state)) return Hint.DrawFromStock
+
+        // 7. Last resort: send a waste card up. In draw 3 this can disturb the
+        // draw cycle's spacing, which is why it ranks below simply drawing —
+        // but it beats telling the player there is nothing to do.
+        moves.filterIsInstance<Move.WasteToFoundation>().firstOrNull()
+            ?.let { return Hint.Suggestion(it) }
+
+        // Deliberately never suggested: card shuffling between tableau columns
         // that uncovers nothing, and digging cards back off the foundations.
-        return if (moves.any { it is Move.Draw || it is Move.Recycle }) Hint.DrawFromStock
-        else Hint.NoMoves
+        return Hint.NoMoves
     }
+
+    /**
+     * Walk one full turn of the draw cycle and report whether any card that
+     * surfaces could be played to a foundation or a tableau column.
+     */
+    private fun drawCycleHasAPlay(start: GameState): Boolean {
+        var state = start
+        val seen = HashSet<Int>()
+        seen.add(cycleKey(state))
+        while (true) {
+            state = when {
+                state.stock.isNotEmpty() -> Rules.apply(state, Move.Draw) ?: return false
+                state.waste.isNotEmpty() -> Rules.apply(state, Move.Recycle) ?: return false
+                else -> return false
+            }
+            if (!seen.add(cycleKey(state))) return false
+            val card = state.wasteTop ?: continue
+            if (Rules.canPlaceOnFoundation(state, card)) return true
+            if (state.tableau.any { Rules.canPlaceOnTableau(it, card) }) return true
+        }
+    }
+
+    /** Identity of a stock/waste configuration within the draw cycle. */
+    private fun cycleKey(state: GameState): Int =
+        state.stock.size * 64 + (state.wasteTop?.id ?: 53)
 
     private fun foundationCard(state: GameState, move: Move): Card? = when (move) {
         is Move.WasteToFoundation -> state.wasteTop

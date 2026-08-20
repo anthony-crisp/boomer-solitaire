@@ -76,14 +76,14 @@ fun StatsScreen(dao: GameRecordDao, onBack: () -> Unit) {
 
             for (drawThree in listOf(false, true)) {
                 val stats = remember(records, drawThree) { computeModeStats(records, drawThree) }
-                if (stats.played == 0 && drawThree) continue
+                if (stats.started == 0 && drawThree) continue
                 StatsCard(
                     title = if (drawThree) "Draw 3" else "Draw 1",
+                    highlight = "Games won" to "${stats.won}",
                     rows = buildList {
-                        add("Games played" to "${stats.played}")
-                        add("Games won" to "${stats.won}")
-                        add("Win rate" to "${stats.winRate}%")
-                        add("Current streak" to "${stats.currentStreak}")
+                        add("Games started" to "${stats.started}")
+                        if (stats.setAside > 0) add("Set aside for later" to "${stats.setAside}")
+                        add("Winning streak" to "${stats.currentStreak}")
                         add("Best streak" to "${stats.bestStreak}")
                         stats.fastestWinMs?.let { add("Fastest win" to formatDuration(it)) }
                         stats.fewestMoves?.let { add("Fewest moves" to "$it") }
@@ -118,7 +118,11 @@ fun StatsScreen(dao: GameRecordDao, onBack: () -> Unit) {
 }
 
 @Composable
-private fun StatsCard(title: String, rows: List<Pair<String, String>>) {
+private fun StatsCard(
+    title: String,
+    highlight: Pair<String, String>,
+    rows: List<Pair<String, String>>,
+) {
     GlassPanel(
         shape = RoundedCornerShape(18.dp),
         modifier = Modifier
@@ -127,6 +131,26 @@ private fun StatsCard(title: String, rows: List<Pair<String, String>>) {
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(12.dp))
+            // Wins are the headline; everything else is quieter context.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    highlight.first,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    highlight.second,
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
             Spacer(Modifier.height(10.dp))
             for ((label, value) in rows) {
                 Row(

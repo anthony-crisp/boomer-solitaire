@@ -6,7 +6,10 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.boomersolitaire.engine.GameState
 import com.boomersolitaire.engine.Move
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -32,9 +35,20 @@ class SaveRepository(private val context: Context) {
     private val key = stringPreferencesKey("saved_game")
     private val json = Json { ignoreUnknownKeys = true }
 
-    val savedGame: Flow<SavedGame?> = context.saveStore.data.map { p ->
-        p[key]?.let { raw -> runCatching { json.decodeFromString<SavedGame>(raw) }.getOrNull() }
-    }
+    /**
+     * Decoding the whole game is expensive and grows with the move history,
+     * so it happens off the main thread and only for callers that need the
+     * game itself. Anything that just needs to know whether a game is waiting
+     * should use [hasSavedGame].
+     */
+    val savedGame: Flow<SavedGame?> = context.saveStore.data
+        .map { p -> p[key]?.let { raw -> runCatching { json.decodeFromString<SavedGame>(raw) }.getOrNull() } }
+        .flowOn(Dispatchers.Default)
+
+    /** Whether a game is waiting to be resumed — no deserialisation. */
+    val hasSavedGame: Flow<Boolean> = context.saveStore.data
+        .map { p -> p[key] != null }
+        .distinctUntilChanged()
 
     suspend fun save(game: SavedGame) {
         context.saveStore.edit { it[key] = json.encodeToString(game) }

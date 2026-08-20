@@ -38,6 +38,22 @@ class AutoCompleteTest {
     }
 
     @Test
+    fun `not offered when a column is not a single descending run`() {
+        // Legal play can never build this, but a corrupted save could: the
+        // eight of spades is buried under the nine, so the cascade would
+        // stall. The guard must refuse rather than throw mid-cascade.
+        val broken = emptyBoard()
+            .withFoundation(Suit.HEARTS, 13)
+            .withFoundation(Suit.DIAMONDS, 13)
+            .withFoundation(Suit.CLUBS, 13)
+            .withFoundation(Suit.SPADES, 7)
+            .withColumn(0, listOf(card(8, Suit.SPADES), card(9, Suit.SPADES)))
+            .withColumn(1, listOf(card(10, Suit.SPADES), card(11, Suit.SPADES)))
+            .withColumn(2, listOf(card(12, Suit.SPADES), card(13, Suit.SPADES)))
+        assertFalse(AutoComplete.canAutoComplete(broken))
+    }
+
+    @Test
     fun `auto-complete sequence finishes the game lowest rank first`() {
         var state = completableState()
         val moves = AutoComplete.autoCompleteMoves(state)

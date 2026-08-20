@@ -22,9 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -197,7 +194,9 @@ fun GameScreen(
                     Board(
                         state = state,
                         settings = effectiveSettings,
-                        isDealing = ui.isDealing,
+                        // Treat the cascade like the deal: the board is
+                        // playing itself, so taps must not interleave.
+                        isDealing = ui.isDealing || ui.isAutoCompleting,
                         hint = ui.hint,
                         shake = ui.shake,
                         callbacks = callbacks,

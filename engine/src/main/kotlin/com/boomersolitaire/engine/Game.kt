@@ -13,7 +13,9 @@ class Game private constructor(
     constructor(initialState: GameState) : this(initialState, mutableListOf(), mutableListOf(initialState))
 
     val state: GameState get() = states.last()
-    val moves: List<Move> get() = history
+
+    /** A snapshot — callers must not observe later mutation of the history. */
+    val moves: List<Move> get() = history.toList()
     val moveCount: Int get() = history.size
     val canUndo: Boolean get() = history.isNotEmpty()
 

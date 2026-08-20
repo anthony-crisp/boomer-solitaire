@@ -25,19 +25,25 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontFamily
@@ -71,6 +77,14 @@ class BoardCallbacks(
     val onRequestMove: (move: Move, cardIds: List<Int>) -> Unit,
 )
 
+/** The board data the drag callbacks need, read through rememberUpdatedState. */
+private class BoardSnapshot(
+    val state: GameState,
+    val placements: Map<Int, CardPlacement>,
+    val metrics: BoardMetrics,
+    val callbacks: BoardCallbacks,
+)
+
 /** A drag in progress: the run of cards being carried and its finger offset. */
 private class DragInfo(
     val source: TapTarget,
@@ -98,8 +112,10 @@ fun Board(
         val placements = remember(state, metrics) { computePlacements(state, metrics) }
         val scope = rememberCoroutineScope()
         val dragState = remember { mutableStateOf<DragInfo?>(null) }
+        val latest = rememberUpdatedState(BoardSnapshot(state, placements, metrics, callbacks))
 
         fun startDrag(source: TapTarget) {
+            val state = latest.value.state
             val ids = when (source) {
                 is TapTarget.Waste -> listOfNotNull(state.wasteTop?.id)
                 is TapTarget.Tableau -> {
@@ -117,11 +133,14 @@ fun Board(
 
         fun endDrag() {
             val drag = dragState.value ?: return
+            val snap = latest.value
             val headId = drag.cardIds.first()
-            val origin = placements[headId] ?: return
-            val dropPos = Offset(origin.x, origin.y) + drag.offset.value
-            val move = resolveDrop(state, metrics, drag.source, dropPos)
-            if (move != null) callbacks.onRequestMove(move, drag.cardIds)
+            val origin = snap.placements[headId]
+            if (origin != null) {
+                val dropPos = Offset(origin.x, origin.y) + drag.offset.value
+                val move = resolveDrop(snap.state, snap.metrics, drag.source, dropPos)
+                if (move != null) snap.callbacks.onRequestMove(move, drag.cardIds)
+            }
             scope.launch {
                 drag.offset.animateTo(
                     Offset.Zero,
@@ -131,7 +150,13 @@ fun Board(
             }
         }
 
-        PileOutlines(metrics, state, callbacks, hint)
+        val onDragStart: (TapTarget) -> Unit = remember { { startDrag(it) } }
+        val onDrag: (Offset) -> Unit = remember {
+            { delta -> dragState.value?.let { scope.launch { it.offset.snapTo(it.offset.value + delta) } } }
+        }
+        val onDragEnd: () -> Unit = remember { { endDrag() } }
+
+        PileOutlines(metrics, state, callbacks, hint, settings.reduceMotion)
 
         // The hint's destination pulse must sit on top of a non-empty pile,
         // so it is attached to that pile's top card.
@@ -155,11 +180,9 @@ fun Board(
                     shake = shake?.takeIf { it.cardIds.contains(card.id) },
                     callbacks = callbacks,
                     dragState = dragState,
-                    onDragStart = ::startDrag,
-                    onDrag = { delta ->
-                        dragState.value?.let { scope.launch { it.offset.snapTo(it.offset.value + delta) } }
-                    },
-                    onDragEnd = ::endDrag,
+                    onDragStart = onDragStart,
+                    onDrag = onDrag,
+                    onDragEnd = onDragEnd,
                 )
             }
         }
@@ -223,6 +246,7 @@ private fun PileOutlines(
     state: GameState,
     callbacks: BoardCallbacks,
     hint: HintHighlight?,
+    reduceMotion: Boolean,
 ) {
     val table = LocalTableColors.current
     val density = LocalDensity.current
@@ -237,19 +261,27 @@ private fun PileOutlines(
 
     @Composable
     fun outline(pos: Offset, label: String, onClick: (() -> Unit)?, highlighted: Boolean, content: @Composable () -> Unit = {}) {
-        val pulse = pulseAlpha(highlighted)
+        val pulse = pulseAlpha(highlighted, reduceMotion)
         Box(
             modifier = Modifier
                 .offset { IntOffset(pos.x.roundToInt(), pos.y.roundToInt()) }
                 .size(cardWDp, cardHDp)
                 .glass(shape, GlassTier.VEIL, lightTable)
                 .then(
-                    if (highlighted) Modifier.border(3.dp, table.highlight.copy(alpha = pulse), shape) else Modifier
+                    if (highlighted) {
+                        Modifier.drawBehind {
+                            drawRoundRect(
+                                color = table.highlight.copy(alpha = pulse.value),
+                                cornerRadius = CornerRadius(m.cardW * 0.09f),
+                                style = Stroke(width = 3.dp.toPx()),
+                            )
+                        }
+                    } else Modifier
                 )
                 .then(
                     if (onClick != null) {
                         Modifier
-                            .clickable(onClickLabel = label) { onClick() }
+                            .clickable(onClickLabel = "Draw") { onClick() }
                             .semantics { contentDescription = label }
                     } else Modifier.semantics { contentDescription = label }
                 ),
@@ -307,17 +339,21 @@ private fun foundationDescription(state: GameState, suit: Suit): String {
     else "Foundation for ${suitName(suit)}, showing ${cardName(top)}"
 }
 
+/**
+ * The hint pulse, as a [State] rather than a raw Float. Callers must read
+ * `.value` inside a draw or graphicsLayer lambda — reading an animating value
+ * in composition recomposes the whole subtree on every frame.
+ */
 @Composable
-private fun pulseAlpha(active: Boolean): Float {
-    if (!active) return 1f
+private fun pulseAlpha(active: Boolean, reduceMotion: Boolean): State<Float> {
+    if (!active || reduceMotion) return remember { mutableStateOf(1f) }
     val transition = rememberInfiniteTransition(label = "pulse")
-    val alpha by transition.animateFloat(
+    return transition.animateFloat(
         initialValue = 0.35f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(550), RepeatMode.Reverse),
         label = "pulseAlpha",
     )
-    return alpha
 }
 
 @Composable
@@ -368,7 +404,9 @@ private fun BoardCard(
             flip.animateTo(end, tween(durationMillis = 260))
         }
     }
-    val showFace = flip.value > 90f
+    // Read through derivedStateOf: the raw Animatable value would recompose
+    // this card on every frame of the flip; the boolean changes twice.
+    val showFace by remember { derivedStateOf { flip.value > 90f } }
 
     // Gentle shake for an invalid move; the card returns home.
     val shakeX = remember { Animatable(0f) }
@@ -390,7 +428,7 @@ private fun BoardCard(
 
     val moving = position.isRunning
     val flipping = flip.isRunning
-    val pulse = pulseAlpha(hinted)
+    val pulse = pulseAlpha(hinted, settings.reduceMotion)
     val shape = RoundedCornerShape(with(density) { (metrics.cardW * 0.09f).toDp() })
     val cardWDp: Dp
     val cardHDp: Dp
@@ -402,7 +440,9 @@ private fun BoardCard(
     val tapLabel = describeCard(card, placement)
     val clickTarget = placement.tap
     val inDragRun = dragState.value?.cardIds?.contains(card.id) == true
-    val draggable = clickTarget is TapTarget.Waste || clickTarget is TapTarget.Tableau
+    // While dealing, every tap belongs to the skip gesture on the board behind.
+    val interactive = !isDealing && clickTarget != null
+    val draggable = interactive && (clickTarget is TapTarget.Waste || clickTarget is TapTarget.Tableau)
     Box(
         modifier = Modifier
             .offset {
@@ -416,7 +456,7 @@ private fun BoardCard(
             .size(cardWDp, cardHDp)
             .then(
                 if (draggable) {
-                    Modifier.pointerInput(clickTarget) {
+                    Modifier.pointerInput(clickTarget, isDealing) {
                         detectDragGestures(
                             onDragStart = { onDragStart(clickTarget!!) },
                             onDrag = { change, amount ->
@@ -433,7 +473,7 @@ private fun BoardCard(
                 rotationY = flip.value - 180f
                 cameraDistance = 16f * density.density
                 if (hinted && !settings.reduceMotion) {
-                    val grow = 1f + 0.035f * pulse
+                    val grow = 1f + 0.035f * pulse.value
                     scaleX = grow
                     scaleY = grow
                 }
@@ -443,11 +483,19 @@ private fun BoardCard(
                 }
             }
             .then(
-                if (hinted) Modifier.border(4.dp, table.highlight.copy(alpha = 0.5f + 0.5f * pulse), shape) else Modifier
+                if (hinted) {
+                    Modifier.drawBehind {
+                        drawRoundRect(
+                            color = table.highlight.copy(alpha = 0.5f + 0.5f * pulse.value),
+                            cornerRadius = CornerRadius(metrics.cardW * 0.09f),
+                            style = Stroke(width = 4.dp.toPx()),
+                        )
+                    }
+                } else Modifier
             )
             .then(
-                if (clickTarget != null) {
-                    Modifier.clickable(onClickLabel = tapLabel) {
+                if (interactive) {
+                    Modifier.clickable(onClickLabel = "Move") {
                         when (clickTarget) {
                             is TapTarget.Stock -> callbacks.onTapStock()
                             is TapTarget.Waste -> callbacks.onTapWaste()
@@ -457,7 +505,14 @@ private fun BoardCard(
                     }
                 } else Modifier
             )
-            .semantics { contentDescription = tapLabel },
+            .semantics {
+                if (placement.tap == null && !placement.faceUp) {
+                    // Buried face-down cards are visual texture, not content.
+                    hideFromAccessibility()
+                } else {
+                    contentDescription = tapLabel
+                }
+            },
     ) {
         if (showFace) {
             CardFace(card, metrics, settings, shape)
@@ -474,7 +529,12 @@ private fun BoardCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(table.highlight.copy(alpha = 0.1f + 0.14f * pulse), shape),
+                    .drawBehind {
+                        drawRoundRect(
+                            color = table.highlight.copy(alpha = 0.1f + 0.14f * pulse.value),
+                            cornerRadius = CornerRadius(metrics.cardW * 0.09f),
+                        )
+                    },
             )
         }
     }

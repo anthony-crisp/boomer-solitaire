@@ -8,17 +8,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -50,6 +53,32 @@ fun HomeScreen(
     val table = LocalTableColors.current
     val ui by vm.ui.collectAsStateWithLifecycle()
     val resumable = hasSavedGame || (ui.state != null && !ui.isWon && ui.moveCount >= 0)
+    var confirmNewGame by remember { mutableStateOf(false) }
+
+    if (confirmNewGame) {
+        AlertDialog(
+            onDismissRequest = { confirmNewGame = false },
+            title = { Text("Start a new game?", fontSize = 22.sp, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "The game you have on the go will be put away and a fresh one dealt.",
+                    fontSize = 18.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmNewGame = false
+                    onNewGame()
+                }) { Text("Deal a new game", fontSize = 18.sp) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmNewGame = false }) {
+                    Text("Keep playing", fontSize = 18.sp)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -104,7 +133,9 @@ fun HomeScreen(
             Spacer(Modifier.height(14.dp))
             GlassButton(
                 text = "New game",
-                onClick = onNewGame,
+                // Starting fresh throws the current game away, and this button
+                // sits right under "Continue game" — so ask first.
+                onClick = { if (resumable) confirmNewGame = true else onNewGame() },
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(14.dp))
