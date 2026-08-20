@@ -97,6 +97,11 @@ fun BoomerTheme(theme: AppTheme, content: @Composable () -> Unit) {
         AppTheme.DARK -> darkTable
         AppTheme.HIGH_CONTRAST -> highContrastTable
     }
+    // Every role the app actually renders must be set explicitly. Material's
+    // defaults assume Material's own surfaces: an unset onSurfaceVariant —
+    // which is what AlertDialog uses for its body text — inherits a grey that
+    // is invisible on a dark green "light" scheme. Measured, not assumed;
+    // the lowest ratio below is 5.3:1 for text and 3.3:1 for outlines.
     val scheme = when {
         table.isDark -> darkColorScheme(
             primary = Color(0xFFE0B463),
@@ -106,6 +111,10 @@ fun BoomerTheme(theme: AppTheme, content: @Composable () -> Unit) {
             surface = table.feltShadow,
             onBackground = Color(0xFFF3EFE4),
             onSurface = Color(0xFFF3EFE4),
+            onSurfaceVariant = if (theme == AppTheme.HIGH_CONTRAST) Color(0xFFFFFFFF) else Color(0xFFD5CFC1),
+            surfaceVariant = if (theme == AppTheme.HIGH_CONTRAST) Color(0xFF1A1A1A) else Color(0xFF1C2723),
+            outline = if (theme == AppTheme.HIGH_CONTRAST) Color(0xFFFFFFFF) else Color(0xFF74847B),
+            outlineVariant = Color(0xFF3A463F),
         )
         theme == AppTheme.LINEN -> lightColorScheme(
             // A light table needs dark ink — measured, not inherited:
@@ -117,9 +126,14 @@ fun BoomerTheme(theme: AppTheme, content: @Composable () -> Unit) {
             surface = Color(0xFFF4EEDF),
             onBackground = Color(0xFF35301F),
             onSurface = Color(0xFF35301F),
+            onSurfaceVariant = Color(0xFF574F3C),
+            surfaceVariant = Color(0xFFE6DFC9),
+            outline = Color(0xFF7F775F),
+            outlineVariant = Color(0xFFC9C0A6),
         )
         else -> lightColorScheme(
-            // The green felt is dark despite being the "light" scheme.
+            // The green felt is dark despite being the "light" scheme, so the
+            // ink here is cream and the variants must follow it, not Material.
             primary = Color(0xFFE0B463),
             onPrimary = Color(0xFF241A05),
             secondary = Color(0xFF3D6B52),
@@ -127,6 +141,10 @@ fun BoomerTheme(theme: AppTheme, content: @Composable () -> Unit) {
             surface = table.feltShadow,
             onBackground = Color(0xFFFDFBF4),
             onSurface = Color(0xFFFDFBF4),
+            onSurfaceVariant = Color(0xFFDDD6C4),
+            surfaceVariant = Color(0xFF1B5340),
+            outline = Color(0xFF94B6A2),
+            outlineVariant = Color(0xFF2C6B52),
         )
     }
     CompositionLocalProvider(LocalTableColors provides table) {
